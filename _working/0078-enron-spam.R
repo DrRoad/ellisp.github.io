@@ -90,7 +90,6 @@ enron_sum_total <- enron_sum1 %>%
           proportion_stop_words = number_stop_words / number_words) %>%
    select(-number_nonstop_words)
 
-
 enron_sum_total %>%
    gather(variable, value, -SPAM, -id) %>%
    ggplot(aes(x = value, fill = SPAM)) +
@@ -98,9 +97,7 @@ enron_sum_total %>%
    geom_density(alpha = 0.5) +
    scale_x_sqrt()
 
-
 # Second is to make a sparse matrix with each word having a column
-
 used_words <- enron_words %>%
    # knock out stop words:
    anti_join(stop_words, by = "word") %>%
@@ -118,7 +115,7 @@ enron_dtm <- enron_words %>%
    right_join(used_words, by = "word") %>%
    cast_dtm(id, word, count) 
 
-# we need a version of enron_dense in the same column, to do a sort of 
+# we need a version of the dense data in the same order as the document-term-matrix, to do a sort of 
 # manual join of the sparse matrix with the dense one later in H2O.
 rows <- data_frame(id = rownames(enron_dtm))
 enron_dense <- left_join(rows, enron_sum_total, by = "id")
@@ -128,10 +125,10 @@ expect_equal(rownames(enron_dtm), enron_dense$id)
 #================import to h2o and join up there============
 h2o.init(nthreads = -1, max_mem_size = "8G")
 
-# Load up the dense matrix:
+# Load up the dense matrix with counts of stopwords etc:
 enron_dense_h2o <- as.h2o(enron_dense)
 
-# Load up the sparse matrix:
+# Load up the sparse matrix with columns for each word:
 thefile <- tempfile()
 write_stm_svm(enron_dtm, file = thefile)
 enron_sparse_h2o <- h2o.uploadFile(thefile, parse_type = "SVMLight")
@@ -145,12 +142,7 @@ expect_equal(ncol(enron_sparse_h2o), ncol(enron_dtm) + 1)
 # First column should be the dummy labels = all one
 expect_equal(mean(enron_sparse_h2o[ , 1]), 1)
 
-# give back the meaningful column names.  For some reason this doesn't work.
-# colnames(enron_sparse_h2o) <- c("Intercept", make.names(colnames(enron_dtm)))
-
 enron_fulldata <- h2o.cbind(enron_sparse_h2o, enron_dense_h2o)
-dim(enron_fulldata) # takes a while, perhaps it is materializing it in the client or something?
-dim(enron_sparse_h2o)
 head(colnames(enron_fulldata), 10)
 
 # Convert the target variable to a factor so h2o.glm and other modelling functions
@@ -185,7 +177,7 @@ system.time({
 mod.glm <- h2o.glm(x = xnames, y = "SPAM", training_frame = enron_split[[1]], 
                    validation_frame = enron_split[[2]],
                    family = "binomial",
-                   nfolds = 5, alpha = 0.5, lambda_search = TRUE)
+                   alpha = 0.5, lambda_search = TRUE)
 })
 
 h2o.varimp(mod.glm) %>%
