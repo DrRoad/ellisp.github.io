@@ -4,7 +4,7 @@ title: Importance of exports and economic growth, cross-country time series
 date: 2015-12-12
 tag: 
    - OpenData
-   - EconomicGrowth
+   - Economics
    - DataFromTheWeb
    - Timeseries
    - R

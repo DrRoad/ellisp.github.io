@@ -5,6 +5,7 @@ date: 2016-09-16
 tag: 
    - R
    - CodingStyle
+   - Reproducibility
    - WorkRelated
 description: Using version control software is a defining sign of a professional approach to serious data analysis
 image: /img/0055-ggplot2-commits.png

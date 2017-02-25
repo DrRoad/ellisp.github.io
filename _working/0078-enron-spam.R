@@ -298,3 +298,16 @@ perfsdf %>%
    ggtitle("Error rates detecting ham from spam",
            "Enron email dataset, four different statistical learning methods")
 dev.off()
+
+
+#============save PNG versions=========
+setwd("../img")
+files <- list.files()
+files <- files[grepl("^0078.+svg$", files)]
+for(i in files){
+   output <- gsub("svg$", "png", i)
+   cmd <- paste0('\"C:\\Program Files\\ImageMagick-7.0.2-Q16\\magick\"', " ", i, " ", output)
+   system(cmd)
+   
+}
+setwd("../_working")
