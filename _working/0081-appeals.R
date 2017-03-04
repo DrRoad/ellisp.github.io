@@ -136,3 +136,14 @@ being appealed successfully by Supreme Court, relative to the Eighth Circuit",
 dev.off()
 
 
+#============save PNG versions=========
+setwd("../img")
+files <- list.files()
+files <- files[grepl("^0081.+svg$", files)]
+for(i in files){
+   output <- gsub("svg$", "png", i)
+   cmd <- paste0('\"C:\\Program Files\\ImageMagick-7.0.2-Q16\\magick\"', " ", i, " ", output)
+   system(cmd)
+   
+}
+setwd("../_working")

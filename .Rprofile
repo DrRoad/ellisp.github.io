@@ -1,3 +1,5 @@
+source("_R/utilities.R")
+
 setwd("_working")
 proj_dir <- getwd()
 library(showtext)

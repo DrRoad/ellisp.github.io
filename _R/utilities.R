@@ -1,3 +1,18 @@
+convert_pngs <- function(postnumber){
+   setwd("../img")
+   files <- list.files()
+   files <- files[grepl(paste0("^", postnumber, ".+svg$"), files)]
+   for(i in files){
+      output <- gsub("svg$", "png", i)
+      cmd <- paste0('\"C:\\Program Files\\ImageMagick-7.0.2-Q16\\magick\"', " ", i, " ", output)
+      system(cmd)
+      
+   }
+   setwd("../_working")
+   
+}
+
+
 rmd2jekyll <- function(filename){
    # adapted from https://github.com/nicolewhite/nicolewhite.github.io/blob/master/_posts/2015-02-07-r-blogging-with-rmarkdown-knitr-jekyll.md 
    #filename = "explore_cars.rmd"
