@@ -69,3 +69,4 @@ par(bg = "grey99")
 biplot(books_pc, choices = 1:2, col = c("darkblue",  "grey75"), pc.biplot = TRUE)
 dev.off()
 
+convert_pngs("0083")
