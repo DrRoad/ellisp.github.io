@@ -1,4 +1,7 @@
 
+# See http://m.nzherald.co.nz/nz/news/article.cfm?c_id=1&objectid=11328981 for
+# commentary on who did best (Digipoll - who aren't in for 2017)
+
 library(nzelect)
 library(mgcv)
 library(tidyverse)
@@ -8,14 +11,6 @@ library(forcats)
 library(RColorBrewer)
 
 # TODO - Reid Research, for a smaller group of years and possibly parties
-
-polls <- polls %>%
-   mutate(ElectionYear = 2017,
-          ElectionYear = ifelse(MidDate <= "2014-09-20", 2014, ElectionYear),
-          ElectionYear = ifelse(MidDate <= "2011-11-26", 2011, ElectionYear),
-          ElectionYear = ifelse(MidDate <= "2008-11-08", 2008, ElectionYear),
-          ElectionYear = ifelse(MidDate <= "2005-09-17", 2005, ElectionYear),
-          ElectionYear = ifelse(MidDate == "2002-07-27", 2002, ElectionYear))
 
 # how many polls per year
 polls %>%
@@ -122,3 +117,9 @@ polls %>%
    theme(legend.position = c(0.7, 0.1)) +
    scale_colour_manual(values = house_colours)
 dev.off()
+
+
+
+#============
+predict(mod, newdata = preddata, type = "response", se.fit = TRUE)
+   
