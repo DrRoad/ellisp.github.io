@@ -4,6 +4,9 @@ library(scales)
 library(nzelect)
 library(GGally)
 library(boot) # for inv.logit
+library(mgcv)
+
+
 
 #=========setup======================
 ThisElection <- "2017-09-23"
@@ -20,14 +23,38 @@ parties <- sort(as.character(parties[!parties %in% c("Destiny", "Progressive")])
    
 n <- 1000
 
-sims <- as.data.frame(matrix(0, nrow = n, ncol = length(parties)))
-names(sims) <- parties
+PollsElection %>%
+   filter(Party %in% parties) %>%
+   mutate(Party = fct_drop(Party)) %>%
+#   mutate(Party = fct_reorder(Party, VotingIntention, fun = max)) %>%
+   ggplot(aes(x = MidDate, y = VotingIntention)) +
+   geom_point(aes(colour = Pollster)) +
+   geom_line(aes(colour = Pollster)) +
+   geom_smooth(se = FALSE) +
+   facet_wrap(~Party, scales = "free_y") +
+   scale_y_continuous(label = percent)
+
+PollsElection %>%
+   filter(Party == "Green") %>%
+   head()
 
 
-#===============simulations==============
+#===========correlations================
+polls_m <- polls %>%
+   filter(MidDate > "2012-01-01") %>%
+   filter(Party %in% parties) %>%
+   mutate(PollDate = paste(Pollster, MidDate),
+          ID = 1:n()) %>%
+   select(Party, VotingIntention, PollDate) %>% 
+   spread(Party, VotingIntention, fill = 0)
 
-# Thgis method doesn't work well with the correlations.
-# eg coirrelation of NZ_First and National is way too strong
+cors <- cor(polls_m[ , -1])
+
+# might want to do a graphic here
+#===============modelling and predictions==============
+modresults <- matrix(0, nrow = length(parties), ncol = 2)
+rownames(modresults) <- parties
+colnames(modresults) <- c("prediction", "se")
 
 for(i in 1:length(parties)){
    theparty <- parties[i]
@@ -47,12 +74,26 @@ for(i in 1:length(parties)){
    }
    
    pred <- predict(mod, newdata = electionday, se.fit = TRUE)
-   print(paste(c(theparty, round(inv.logit(pred$fit + c(-2, 2) * pred$se.fit) * 100, 1)), collapse = " : "))
-   sims[ , i] <- inv.logit(rnorm(1000, pred$fit, pred$se.fit))
+   modresults[i , ] <- c(pred$fit, pred$se.fit)
 }
 
+pred_sims <- as.data.frame(round(inv.logit(cbind(
+   modresults[, "prediction"] -  1.96 * modresults[ , "se"],
+   modresults[, "prediction"],
+   modresults[, "prediction"] +  1.96 * modresults[ , "se"])) 
+   * 100, 1))
+names(pred_sims)  <- c("Lower", "Midpoint", "Upper")
+pred_sims
+#==========simulations============
+
+
+se <- modresults[ , "se"]
+sims <- inv.logit(MASS::mvrnorm(n = n, 
+              mu = modresults[, "prediction"],
+              Sigma = se %*% t(se) * cors))
 
 sims_df <- sims %>%
+   as.data.frame() %>%
    mutate(ID = 1:n()) %>%
    gather(Party, Vote, -ID) %>%
    group_by(ID) %>%
@@ -80,7 +121,7 @@ seats <- seats %>%
 
 #==================presentation=====================
 seats %>%
-   select(NatCoal, LabCoal) %>%
+   dplyr::select(NatCoal, LabCoal) %>%
    gather(Coalition, Seats) %>%
    ggplot(aes(x = Seats, colour = Coalition)) +
    geom_density() 
@@ -90,10 +131,12 @@ seats %>%
    ggplot(aes(x = NatMaj)) +
    geom_density() 
 
-
+# This graph is interestin.
+# note that the correlations here are much further from zero than the 
+# correlations of votes, because of the seats algorithm
 seats %>%
    mutate(Other = ACT + `United Future` + Conservative + Mana + Maori) %>%
-   select(Green, Labour, National, NZ_First, Other) %>%
+   dplyr::select(Green, Labour, National, NZ_First, Other) %>%
    ggpairs() +
    ggtitle(paste("Possible outcomes for number of seats", ThisElection))
 
