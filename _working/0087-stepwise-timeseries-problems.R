@@ -27,6 +27,10 @@ orig_data %>%
            "Three unrelated (but that is unknown to us) univariate time series")
 dev.off()
 
+svg("../img/0087-pairs.svg", 7, 5)
+GGally::ggpairs(data.frame(x1 = x1[1:n], x2 = x2[1:n], y = as.numeric(y)))
+dev.off()
+
 X_full <- cbind(x1, x2)
 X_historical <- X_full[1:n, ]
 X_future <- X_full[-(1:n), ]
