@@ -132,14 +132,17 @@ svg("../img/0084-house2.svg", 8, 5)
 dev.off()
 
 # table for blog post:
-hb2 %>%
+house_effects <- hb2 %>%
    filter(Pollster == "Reid Research") %>%
    rbind(hb1) %>%
-   arrange(Party, Pollster) %>%
-   mutate(`Average bias` = paste0(round(Bias * 100, 1), "%")) %>%
-   select(-Bias) %>%
-   spread(Pollster, `Average bias`) %>%
+   arrange(Party, Pollster)
+   
+house_effects %>%
+   mutate(Bias = paste0(round(Bias * 100, 1), "%")) %>%
+   spread(Pollster, Bias) %>%
    knitr::kable(align = "lrrr")
+
+save(house_effects, file = "../data/house_effects.rda")
 
 #===================how many polls per year==========================
 svg("../img/0084-polls-year.svg", 8, 7)
