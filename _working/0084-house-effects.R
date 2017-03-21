@@ -1,7 +1,3 @@
-
-# See http://m.nzherald.co.nz/nz/news/article.cfm?c_id=1&objectid=11328981 for
-# commentary on who did best (Digipoll - who aren't in for 2017)
-
 library(nzelect)
 library(mgcv)
 library(tidyverse)
@@ -11,12 +7,13 @@ library(forcats)
 library(RColorBrewer)
 
 
-
 #=====================data prep=======================
 
-house_colours <- brewer.pal(4, "Set1")
+# vector of colours to use in graphics
+house_colours <- c("black", brewer.pal(3, "Set1"))
 names(house_colours) <-   c("Election result", "Reid Research", "Colmar Brunton", "Roy Morgan")
 
+# vector of just the seven main parties to use
 parties <- polls %>%
    filter(ElectionYear == 2017) %>%
    distinct(Party) %>%
@@ -24,7 +21,7 @@ parties <- polls %>%
    Party
 
 
-#===============introductory graphics========================
+#===============introductory graphic========================
 election_dates <- polls %>%
    filter(Pollster == "Election result") %>%
    select(MidDate) %>%
@@ -41,24 +38,21 @@ p1 <- d1 %>%
    geom_vline(xintercept = as.numeric(election_dates$MidDate), colour = "orange") +
    geom_line(alpha = 0.4) +
    geom_smooth(data = filter(d1, Pollster != "Election result"), span = .3, se = FALSE) +
-   geom_line(data = filter(d1, Pollster == "Election result"), size = 1.5) +
+   geom_line(data = filter(d1, Pollster == "Election result"), size = 1, alpha = 0.5) +
+   geom_point(data = filter(d1, Pollster == "Election result"), size = 2) +
    scale_y_continuous("Voting intention", label = percent) +
    scale_x_date("") +
    labs( colour = "")   +
-   scale_colour_manual(values = house_colours) 
+   scale_colour_manual(values = house_colours) +
+   ggtitle("Survey versus actual performance in New Zealand voting behaviour",
+           "New Zealand First seems systematically underestimated; Greens perhaps overestimated.") +
+   labs(caption = "Source: polls data collected by Wikipedia, available in the {nzelect} R package")
 
 svg("../img/0084-straight-polls-1.svg", 12, 7)
 p1 +
-   facet_wrap( ~ Party, scales = "free_y") +
-   theme(legend.position = c(0.7, 0.1)) 
+   facet_wrap( ~ Party, scales = "free") +
+   theme(legend.position = c(0.7, 0.15)) 
 dev.off()
-
-svg("../img/0084-straight-polls-2.svg", 12, 7)
-p1 +
-   facet_grid(Pollster ~ Party) +
-   theme(legend.position = "none")
-dev.off()
-
 
 #=============estimate and present house "bias"=============
 
@@ -112,21 +106,40 @@ house_bias <- function(elect_years, pollsters){
       scale_colour_manual(values = house_colours) +
       scale_x_continuous("Election year", breaks = c(2005, 2008, 2011, 2014), limits = c(2004, 2015)) +
       scale_y_continuous(label = percent) +
-      theme(legend.position = c(0.9, 0.15))
+      theme(legend.position = c(0.9, 0.18)) +
+      ggtitle("Statistical forecast of election compared to actual result",
+              "Forecasts use time series methods based on pollsters' results, are not actual pollsters' forecasts") +
+      labs(caption = "Source: polls data collected by Wikipedia, available in the {nzelect} R package")
    
-   return(p)
+   print(p)
+   
+   houses_av <- houses %>%
+      gather(Party, Bias, -ElectionYear, -Pollster) %>%
+      group_by(Party, Pollster) %>%
+      summarise(Bias = mean(Bias))
+   
+   return(houses_av)
 }
    
 svg("../img/0084-house1.svg", 8, 5)
-   house_bias(elect_years = c(2005, 2008, 2011, 2014),
+   hb1 <- house_bias(elect_years = c(2005, 2008, 2011, 2014),
               pollsters   = c("Colmar Brunton", "Roy Morgan"))      
 dev.off()
 
 svg("../img/0084-house2.svg", 8, 5)
-# Labour Roy MOrgan looks different in this one than the previous:
-house_bias(elect_years = c(2011, 2014),
+   hb2 <- house_bias(elect_years = c(2011, 2014),
            pollsters    = c("Reid Research", "Colmar Brunton", "Roy Morgan"))      
 dev.off()
+
+# table for blog post:
+hb2 %>%
+   filter(Pollster == "Reid Research") %>%
+   rbind(hb1) %>%
+   arrange(Party, Pollster) %>%
+   mutate(`Average bias` = paste0(round(Bias * 100, 1), "%")) %>%
+   select(-Bias) %>%
+   spread(Pollster, `Average bias`) %>%
+   knitr::kable(align = "lrrr")
 
 #===================how many polls per year==========================
 svg("../img/0084-polls-year.svg", 8, 7)
@@ -139,7 +152,8 @@ polls %>%
    mutate(Pollster = fct_reorder(Pollster, Polls)) %>%
    ggplot(aes(x = Polls, y = Pollster, colour = as.factor(ElectionYear))) +
    geom_point() +
-   facet_wrap(~ElectionYear)
+   facet_wrap(~ElectionYear) +
+   theme(legend.position = "none")
 dev.off()
 
 #============conver to PNGs==============
