@@ -9,6 +9,8 @@ library(mgcv)
 
 
 #=========setup======================
+load("../data/house_effects.rda")
+
 ThisElection <- "2017-09-23"
 
 electionday <- data_frame(
@@ -16,7 +18,16 @@ electionday <- data_frame(
 )
 
 PollsElection <- polls %>%
-   filter(ElectionYear == substring(ThisElection, 1, 4)) 
+   as_tibble() %>%
+   filter(ElectionYear == substring(ThisElection, 1, 4)) %>%
+   left_join(house_effects, by = c("Pollster", "Party")) %>%
+   # we don't have bias estimates for Mana or Conservative parties,
+   # or for pollsters other than Colmar Brunton, Reid Research and 
+   # Roy Morgan.  So replace NA in bias with zero:
+   mutate(Bias = ifelse(is.na(Bias), 0, Bias),
+          VotingIntention = VotingIntention - Bias,
+          VotingIntention = ifelse(VotingIntention < 0, 0, VotingIntention))
+   # note that VotingIntention now no longer necessarily adds to 100
 
 parties <- unique(PollsElection$Party)
 parties <- sort(as.character(parties[!parties %in% c("Destiny", "Progressive")]))
@@ -32,25 +43,20 @@ PollsElection %>%
    geom_line(aes(colour = Pollster)) +
    geom_smooth(se = FALSE) +
    facet_wrap(~Party, scales = "free_y") +
-   scale_y_continuous(label = percent)
-
-PollsElection %>%
-   filter(Party == "Green") %>%
-   head()
-
+   scale_y_continuous(label = percent) +
+   labs(y = "Voting intention after adjusting for house effects")
 
 #===========correlations================
-polls_m <- polls %>%
-   filter(MidDate > "2012-01-01") %>%
+polls_w <- PollsElection %>%
    filter(Party %in% parties) %>%
    mutate(PollDate = paste(Pollster, MidDate),
           ID = 1:n()) %>%
    select(Party, VotingIntention, PollDate) %>% 
    spread(Party, VotingIntention, fill = 0)
 
-cors <- cor(polls_m[ , -1])
+cors <- cor(polls_w[ , -1])
 
-# might want to do a graphic here
+# might want to do a graphic here showing the correlations
 #===============modelling and predictions==============
 modresults <- matrix(0, nrow = length(parties), ncol = 2)
 rownames(modresults) <- parties
@@ -105,6 +111,7 @@ sims_df %>%
    facet_wrap(~Party, scales = "free") +
    scale_x_continuous(label = percent)
 
+# next bit should be simulated too
 electorates <- c(1,0,0,1,0,1,1,1,1)
 
 seats <- as.data.frame(t(apply(sims, 1, function(x){
@@ -140,6 +147,8 @@ seats %>%
    ggpairs() +
    ggtitle(paste("Possible outcomes for number of seats", ThisElection))
 
+# instead of assuming NZFirst go with Labour, make scenarios called
+# "NZFirst decides"
 seats %>%
    summarise(NatCoalWin = mean(NatCoal > LabCoal),
              LabCoalWin = mean(LabCoal > NatCoal),
