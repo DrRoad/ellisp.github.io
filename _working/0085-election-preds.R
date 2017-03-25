@@ -98,9 +98,10 @@ PollsElection <- polls %>%
    # or for pollsters other than Colmar Brunton, Reid Research and 
    # Roy Morgan.  So replace NA in bias with zero:
    mutate(Bias = ifelse(is.na(Bias), 0, Bias),
-          VotingIntention = VotingIntention - Bias,
-          VotingIntention = ifelse(VotingIntention < 0, 0, VotingIntention))
-   # note that VotingIntention now no longer necessarily adds to 100
+          VotingIntention = ifelse(VotingIntention < 0.0005, 0.0005, VotingIntention),
+          VotingIntention = logit(VotingIntention) - Bias)
+   # note that sum(inv.logit(VotingIntention)) now no longer necessarily 
+   # adds to 100, because of the bias corrections
 
 parties <- unique(PollsElection$Party)
 parties <- sort(as.character(parties[!parties %in% c("Destiny", "Progressive")]))
@@ -116,63 +117,68 @@ PollsElection %>%
    geom_line(aes(colour = Pollster)) +
    geom_smooth(se = FALSE) +
    facet_wrap(~Party, scales = "free_y") +
-   scale_y_continuous(label = percent) +
-   labs(y = "Voting intention after adjusting for house effects")
+   scale_y_continuous("logit(Voting Intention), after adjusting for house effects\n",
+                      sec.axis = sec_axis(~inv.logit(.) * 100,
+                                          name = "Voting Intention, after adjusting for house effects\n")) 
+
+# add a secondary scale
 
 #===========correlations================
 polls_w <- PollsElection %>%
    filter(Party %in% parties) %>%
    mutate(PollDate = paste(Pollster, MidDate),
           ID = 1:n()) %>%
-   select(Party, VotingIntention, PollDate) %>% 
-   spread(Party, VotingIntention, fill = 0)
+   select(Party, VotingIntention, PollDate, MidDate) %>% 
+   spread(Party, VotingIntention, fill = 0) %>%
+   mutate(MidDate = as.numeric(MidDate))
 
-cors <- cor(polls_w[ , -1])
+cors <- cor(polls_w[ , -(1:2)])
+
+
 
 # might want to do a graphic here showing the correlations
 #===============modelling and predictions==============
-modresults <- matrix(0, nrow = length(parties), ncol = 2)
-rownames(modresults) <- parties
-colnames(modresults) <- c("prediction", "se")
 
-for(i in 1:length(parties)){
-   theparty <- parties[i]
-   
-   thedata <- PollsElection %>%
-      filter(Party == theparty)
-   
-   if(theparty != "United Future"){
-      mod <- gam(VotingIntention ~ s(as.numeric(MidDate)),
-                 family = "quasibinomial", data = thedata)
-   } else {
-      # United Future gives wildly unrealistic predictions, including
-      # a small chance of 75% of electorate voting for them.  Because
-      # not enough data.  So shrink down model to a simpler one.
-      mod <- gam(VotingIntention ~ as.numeric(MidDate),
-                 family = "quasibinomial", data = thedata)
-   }
-   
-   pred <- predict(mod, newdata = electionday, se.fit = TRUE)
-   modresults[i , ] <- c(pred$fit, pred$se.fit)
-}
+names(polls_w) <- make.names(names(polls_w))
+mod <- gam(list(
+      ACT ~ s(MidDate, k = 3),
+      Conservative ~ s(MidDate, k = 3),
+      Green ~ s(MidDate),
+      Labour ~ s(MidDate),
+      Mana ~ s(MidDate, k = 3),
+      Maori ~ s(MidDate, k = 3),
+      National ~ s(MidDate),
+      NZ.First ~ s(MidDate),
+      United.Future ~ MidDate
+   ),   data = polls_w,   family = mvn(d = 9))
 
-pred_sims <- as.data.frame(round(inv.logit(cbind(
-   modresults[, "prediction"] -  1.96 * modresults[ , "se"],
-   modresults[, "prediction"],
-   modresults[, "prediction"] +  1.96 * modresults[ , "se"])) 
-   * 100, 1))
-names(pred_sims)  <- c("Lower", "Midpoint", "Upper")
-pred_sims
+mod_pred <- predict(mod, newdata = electionday, se.fit = TRUE)
+summary(mod)
+str(mod)
+plot(mod, pages = 1, shade = TRUE)
+
+pred_votes <- data.frame(
+   Lower = as.vector(mod_pred[["fit"]] -  1.96 * mod_pred[["se.fit"]]),
+   Midpoint = as.vector(mod_pred[["fit"]]),
+   Upper = as.vector(mod_pred[["fit"]] +  1.96 * mod_pred[["se.fit"]])) %>%
+   map_df(function(x){round(inv.logit(x) * 100, 1)}) %>%
+   mutate(Party = parties)
+
+pred_votes
 #==========simulations============
 
+## estimated cov matrix from model
+mod_cov <- solve(crossprod(mod$family$data$R)) 
+cov2cor(mod_cov)
+cors # tend to be higher than those from the model
 
-se <- modresults[ , "se"]
+se <- as.vector(mod_pred[["se.fit"]])
 sims <- inv.logit(MASS::mvrnorm(n = n, 
-              mu = modresults[, "prediction"],
-              Sigma = se %*% t(se) * cors))
-
+              mu = mod_pred[["fit"]],
+              Sigma = se %*% t(se) * cov2cor(mod_cov))) %>%
+   as.data.frame()
+names(sims) <- parties
 sims_df <- sims %>%
-   as.data.frame() %>%
    mutate(ID = 1:n()) %>%
    gather(Party, Vote, -ID) %>%
    group_by(ID) %>%
@@ -184,12 +190,43 @@ sims_df %>%
    facet_wrap(~Party, scales = "free") +
    scale_x_continuous(label = percent)
 
-# next bit should be simulated too
-electorates <- c(1,0,0,1,0,1,1,1,1)
+#===============simulate electorates================
 
-seats <- as.data.frame(t(apply(sims, 1, function(x){
-   allocate_seats(x, electorate = electorates)$seats_v
-})))
+
+# probabilities of each seat for Maori, Labour and Mana.  This makes a big difference to 
+# the overal results
+maori_probs <- c(0.22, 0.7, 0.05)
+
+# see https://en.wikipedia.org/wiki/M%C4%81ori_electorates for the true names of the Maori electorates
+electorate_sims <- data_frame(
+   orahiu = sample(c("United Future", "Labour"), prob = c(0.6, 0.4), size = n, replace = TRUE),
+   epsom = sample(c("ACT", "National", "Labour"), prob = c(0.8, 0.1, 0.1), size = n, replace = TRUE),
+   m1 = sample(c("Maori", "Labour", "Mana"), prob = maori_probs, size = n, replace = TRUE),
+   m2 = sample(c("Maori", "Labour", "Mana"), prob = maori_probs, size = n, replace = TRUE),
+   m3 = sample(c("Maori", "Labour", "Mana"), prob = maori_probs, size = n, replace = TRUE),
+   m4 = sample(c("Maori", "Labour", "Mana"), prob = maori_probs, size = n, replace = TRUE),
+   m5 = sample(c("Maori", "Labour", "Mana"), prob = maori_probs, size = n, replace = TRUE),
+   m6 = sample(c("Maori", "Labour", "Mana"), prob = maori_probs, size = n, replace = TRUE),
+   m7 = sample(c("Maori", "Labour", "Mana"), prob = maori_probs, size = n, replace = TRUE)
+) %>%
+   mutate(sim = 1:n()) %>%
+   gather(seat, party, -sim) %>%
+   group_by(party, sim) %>%
+   summarise(seats = n()) %>%
+   spread(party, seats, fill = 0) 
+
+data.frame(party = colnames(electorate_sims)[-1], 
+           electorate_seats = as.numeric(electorate_sims[1, -1]))
+
+
+
+#============allocate seats==================
+
+
+seats <- t(sapply(1:n, function(i){
+   allocate_seats(votes = as.numeric(sims[i, ]), 
+                  electorate = as.numeric(electorate_sims[i, ]))$seats_v
+}))
 
 names(seats) <- gsub("M.ori", "Maori", names(seats))
 names(seats) <- gsub("NZ First", "NZ_First", names(seats))
