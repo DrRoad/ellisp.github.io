@@ -7,7 +7,11 @@ image: /img/general-image.png
 
 This page provides experimental probabilistic predictions for the 2017 New Zealand General Election.  It draws on multiple opinion polls, but goes a step beyond a straightforward poll aggregator in that the estimated voting intention from successive polls is used to forecast the chances of each party to actually win seats on election day, taking into account uncertainty.  Polling results are also adjusted to take into account different polling firms' past performance in predicting different parties' results.
 
-This page will be updated periodically as more data become available.
+This page will be updated periodically as more data become available, or as I change my ideas about modelling strategy.  
+
+- All material changes are described in [this changelog](/elections/changelog.html).  
+- Source code for the analysis, including all committed changes, is [available in the nz-election-forecast repository on GitHub](https://github.com/ellisp/nz-election-forecast/)
+- Source code for the write up, including all committed changes, is [available in my blog repository on GitHub](https://github.com/ellisp/ellisp.github.io/tree/source/elections)
 
 Let's look at the big picture predicted result, and compare it to what we would have predicted with the same method if we applied it in March 2014 six months before the last election:
 
@@ -48,7 +52,7 @@ These assumptions are not terribly data-driven, but are better than simply assum
 
 Seat allocation computation from the simulated party vote results uses the Sainte-Lague allocation formula as implemented in my `nzelect` R package, which I am confident matches the approach used by the Electoral Commission.  All the simulated seat allocations are [available for download](/elections/simulations.csv).
 
-The graphic below shows the simulated outcomes in terms of seats for the various parties in relation to eachother.  The numbers in green in the upper right of the chart are correlation coefficients between outcomes in the different simulations; for example, with a correlation of around -0.57, number of Labour and National seats are strongly negatively related to eachother: simulations where National get lots of seats generally means Labour do badly, and vice versa.
+The graphic below shows the simulated outcomes in terms of seats for the various parties in relation to eachother.  The numbers in green in the upper right of the chart are correlation coefficients between outcomes in the different simulations; for example, with a correlation of around -0.37, number of Labour and National seats are strongly negatively related to eachother: simulations where National get lots of seats generally means Labour do badly, and vice versa.
 
 <img src='/img/gam-results-pairs.svg' width='100%'>
 
@@ -58,13 +62,11 @@ The graphic below shows the simulated outcomes in terms of seats for the various
 
 The test for any forecasting method is how it goes at predicting real life results, pretending to come from a position of ignorance.  So I used the same method to predict the results of the 20 September 2014 election, limiting myself to data up to 20 March 2014.  This meant repeating the house effects estimation with a smaller dataset, refitting the models, etc.  I cut a few corners, particularly on the M&#257;ori electorates where I just allocated them 50/50 to Labour or someone else; I can't realistically say what arbitrary guess I would have made three years ago, but I don't think it makes that much difference.  
 
-Some results are shown below.  In a real life forecast I'm sure I would have stepped in to remove the curvature in the ACT and Conservative forecasts that leads to such implausibly large upper limits; and there's something funny going on with United Future too.  I didn't go into fixes for this for this retrospective exercise in order to minimise any subjective decisions and give the method a fair test.
-
-It's not too bad for a six-month out prediction.  [In the end](http://www.elections.org.nz/news-media/new-zealand-2014-general-election-official-results), the Green party exceeded these expectations with 10.7% of the party vote, and New Zealand First got 8.7% (out performing the polls materially).  Labour under-performed compared to this retrospective prediction, getting only 25.1% of the party vote.  The downwards curve in intent to vote for Labour in that election cycle was only just becoming apparent six months in advance - see the chart below.  The National Party final party vote in 2014 was 47.0%, within the prediction interval.  
+Some results are shown below.  It's not too bad for a six-month out prediction.  [In the end](http://www.elections.org.nz/news-media/new-zealand-2014-general-election-official-results), the Green party exceeded these expectations with 10.7% of the party vote, and New Zealand First got 8.7% (out performing the polls materially).  Labour under-performed compared to this retrospective prediction, getting only 25.1% of the party vote.  The downwards curve in intent to vote for Labour in that election cycle was only just becoming apparent six months in advance - see the chart below.  The National Party final party vote in 2014 was 47.0%, within the prediction interval.  
 
 <img src='/img/gam-vote-predictions-2014.svg' width='100%'>
 
-Most importantly, if I'd applied this method in March 2014, I would have predicted the correct overall outcome with a fair degree of confidence:
+If I'd applied this method in March 2014, I would have identified the actual results (which were, very narrowly, a National-led coalition) as the most probable outcome:
 <img src='/img/gam-final-chances-bar-2014.svg' width='100%'>
 
 ## Reflections
@@ -79,6 +81,6 @@ This page is not associated with any political party, media or commentator.  I h
 
 Non-politicised corrections, reactions or suggestions are welcomed - use the comments section below or [log an issue with the source code repository on GitHub](https://github.com/ellisp/nz-election-forecast/issues).  There are some known areas for follow up already such as:
 
-* weight polling observations proportionately to the inverse of sample size - I only haven't done this because I don't have the sample size data convenient to hand
-* compare this simple approach to a formally specified latent state space model
+* weight polling observations proportionately to sample size - I only haven't done this because I don't have the sample size data convenient to hand.  If/when I add sample sizes to the `nzelect` R package I will incorporate it into the analysis here too.
+* compare this simple approach to a more formally specified Bayesian latent state space model.  I'm keen on doing this but it's less familiar territory for me; and I'm suspicious that it will be extremely computationally intensive (eg multiple days of processing).  Will get around to it sooner or later.
 

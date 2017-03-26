@@ -9,7 +9,19 @@ convert_pngs <- function(postnumber){
       
    }
    setwd("../_working")
-   
+}
+
+convert_election_pngs <- function(files = c("gam-final-chances-bar.svg",
+                                            "gam-vote-predictions.svg",
+                                            "gam-vote-predictions-density.svg")){
+   setwd("../img")
+   for(i in files){
+      output <- gsub("svg$", "png", i)
+      cmd <- paste0('\"C:\\Program Files\\ImageMagick-7.0.2-Q16\\magick\"', " ", i, " ", output)
+      system(cmd)
+      
+   }
+   setwd("../_working")
 }
 
 
