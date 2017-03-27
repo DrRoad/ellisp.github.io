@@ -52,7 +52,7 @@ These assumptions are not terribly data-driven, but are better than simply assum
 
 Seat allocation computation from the simulated party vote results uses the Sainte-Lague allocation formula as implemented in my `nzelect` R package, which I am confident matches the approach used by the Electoral Commission.  All the simulated seat allocations are [available for download](/elections/simulations.csv).
 
-The graphic below shows the simulated outcomes in terms of seats for the various parties in relation to eachother.  The numbers in green in the upper right of the chart are correlation coefficients between outcomes in the different simulations; for example, with a correlation of around -0.37, number of Labour and National seats are strongly negatively related to eachother: simulations where National get lots of seats generally means Labour do badly, and vice versa.
+The graphic below shows the simulated outcomes in terms of seats for the various parties in relation to eachother.  The numbers in green in the upper right of the chart are correlation coefficients between outcomes in the different simulations; for example, number of Labour and National seats are strongly negatively related to eachother: simulations where National get lots of seats generally means Labour do badly, and vice versa.
 
 <img src='/img/gam-results-pairs.svg' width='100%'>
 
