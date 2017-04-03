@@ -1,7 +1,8 @@
 ---
 layout: narrowwithcomments
 title: New Zealand general election forecasts - changelog
-image: /img/general-image.png
+image: /img/gam-vote-predictions.png
+socialimage: /img/gam-vote-predictions.png
 ---
 <p></p>
 
