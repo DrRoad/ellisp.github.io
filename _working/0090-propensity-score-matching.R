@@ -1,14 +1,12 @@
 library(tidyverse)
 library(forcats)
 library(scales)
-library(MASS)              # for mvrnorm
-library(clusterGeneration) # for genPositiveDefMat
+library(MASS)              # for rlm
 library(boot)              # for inv.logit
-library(testthat)          # for expect_equal
 library(MatchIt)
 library(boot)              # for bootstrapping
 library(doParallel)        # for parallel processing
-library(foreach)
+library(mgcv)              # for gam
 
 #==============example from the MatchIt vignette=================
 data(lalonde)
@@ -33,14 +31,43 @@ match_data %>%
              n = n())
 
 # regression model estimate with matched data
-coef(MASS::rlm(re78 ~ age + treat + educ + black + hispan + nodegree + married +  re74 + re75, 
-        data = match_data))["treat"]
+round(coef(rlm(re78 ~ age + treat + educ + black + hispan + nodegree + married +  re74 + re75, 
+        data = match_data))["treat"])
 
 # regression model estimate with original data
-coef(MASS::rlm(re78 ~ age + treat + educ + black + hispan + nodegree + married +  re74 + re75, 
-        data = lalonde))["treat"]
+round(coef(rlm(re78 ~ age + treat + educ + black + hispan + nodegree + married +  re74 + re75, 
+        data = lalonde))["treat"])
 
+#====================================weighting=================
+mod <- gam(treat ~ s(age) + educ + black + hispan + nodegree + married + re74 + re75, 
+           data = lalonde, family = "binomial")
 
+svg("../img/0090-gam.svg", 7, 5)
+par(family = "myfont", bty = "l", font.main = 1)
+plot(mod, shade = TRUE, 
+     main = "Non-linear function of age in treatment propensity")
+dev.off()
+
+lalonde <- lalonde %>%
+   mutate(propensity_gam = predict(mod, type = "response"),
+          weight_gam = 1 / propensity_gam * treat + 1 / (1 - propensity_gam) * (1 - treat))
+
+svg("../img/0090-weights.svg", 7, 4)
+ggplot(lalonde, aes(x = weight_gam, fill = as.factor(treat))) +
+   geom_density(alpha = 0.5, colour = "grey50") +
+   geom_rug() +
+   scale_x_log10(breaks = c(1, 5, 10, 20, 40)) +
+   ggtitle("Distribution of inverse probability of treatment weights")
+dev.off()
+
+lalonde %>%
+   group_by(treat) %>%
+   summarise(Income_allweights = round(weighted.mean(re78, weight_gam)),
+             Income_truncweights = round(weighted.mean(re78, pmin(10, weight_gam))),
+             n = n())
+   
+coef(rlm(re78 ~ age + treat + educ + black + hispan + nodegree + married +  re74 + re75, 
+         data = lalonde, weights = as.vector(weight_gam)))["treat"]
 
 #=================bootstrap for confidence intervals=================
 # Set up a cluster for parallel computing
@@ -53,9 +80,8 @@ clusterEvalQ(cluster, {
 })
 
 #' Function to estimate treatment effect three different methods
-#' @return a vector of three estimates of treatment effect: simple 
-#' comparison of matched data; regression with matched data; 
-#' regression with the original data.
+#' @return a vector of four estimates of treatment effect.  See comments
+#' in function for description of which is which
 my_function <- function(x, i){
    resampled_data <- x[i, ]
    match_data <- match.data(
@@ -63,19 +89,31 @@ my_function <- function(x, i){
               data = resampled_data, method = "nearest")
    )
    
+   # simple mean of matched groups
    est1 <- with(match_data,
                 mean(re78[treat == 1]) -
                    mean(re78[treat == 0]))
    
    
-   # regression model estimate with matched data
-   est2 <- coef(MASS::rlm(re78 ~ treat + age + educ + black + hispan + nodegree + married +  re74 + re75, 
+   # regression model estimate with matched groups
+   est2 <- coef(rlm(re78 ~ treat + age + educ + black + hispan + nodegree + married +  re74 + re75, 
            data = match_data))["treat"]
    
+   # regression model with IPTW
+   mod <- gam(treat ~ s(age) + educ + black + hispan + nodegree + married + re74 + re75, 
+              data = resampled_data, family = "binomial")
+   
+   resampled_data <- resampled_data %>%
+      mutate(propensity_gam = predict(mod, type = "response"),
+             weight_gam = 1 / propensity_gam * treat + 1 / (1 - propensity_gam) * (1 - treat))
+   
+   est3 <- coef(rlm(re78 ~ age + treat + educ + black + hispan + nodegree + married +  re74 + re75, 
+            data = resampled_data, weights = as.vector(weight_gam)))["treat"]
+   
    # regression model estimate with original data
-   est3 <- coef(MASS::rlm(re78 ~ treat + age + educ + black + hispan + nodegree + married +  re74 + re75, 
+   est4 <- coef(rlm(re78 ~ treat + age + educ + black + hispan + nodegree + married +  re74 + re75, 
                    data = resampled_data))["treat"]
-   return(c(est1, est2, est3))
+   return(c(est1, est2, est3, est4))
 }
 
 my_function(lalonde, 1:nrow(lalonde))
@@ -83,27 +121,40 @@ my_function(lalonde, 1:nrow(lalonde))
 booted <- boot(lalonde, statistic = my_function, R = 5000, 
      parallel = "snow", cl = cluster)
 
-svg("../img/0090-job-treatment.svg", 8, 5)
 booted_df <- as.data.frame(booted$t)
-names(booted_df) <- c("Simple with matched data", "Regression with matched data", "Regression with original data")
-booted_df %>%
+names(booted_df) <- c("Simple difference with matched data", 
+                      "Regression with matched data", 
+                      "Regression with weighted data",
+                      "Regression with original data")
+
+booted_tidy <- booted_df %>%
    gather("Method", "Estimate") %>%
-   mutate(Method = fct_reorder(Method, Estimate)) %>%
-   ggplot(aes(x = Estimate, fill = Method)) +
-   geom_density(alpha = 0.4, colour = "grey50") +
-   scale_x_continuous(label = dollar) +
-   ggtitle("Uncertainty of estimates of treatment effects from three different methods",
-           "Estimated impact on income in 1978 of a job training program") +
-   labs(x = "Estimated treatment effect",
-        caption = "Lalonde's 1986 data on a job training program",
-        fill = "")
+   mutate(Method = fct_reorder(Method, Estimate)) 
+
+booted_summary <- booted_tidy %>%
+   group_by(Method) %>%
+   summarise(lower = quantile(Estimate, 0.025),
+             upper = quantile(Estimate, 0.975)) %>%
+   gather(type, Estimate, -Method)
+
+svg("../img/0090-job-treatment.svg", 8, 5)
+   ggplot(booted_tidy, aes(x = Estimate, fill = Method)) +
+      geom_density(alpha = 0.4, colour = "grey50") +
+      geom_segment(data = booted_summary, aes(xend = Estimate), y = 0, yend = 2e-04) +
+      geom_text(data = booted_summary, aes(label = round(Estimate)), y = 2.5e-04, size = 3) +
+      facet_wrap(~Method) +
+      theme(legend.position = "none") +
+      scale_x_continuous(label = dollar) +
+      ggtitle("Treatment effects from four different modelling methods",
+              "Distribution and 95% confidence intervals of estimated impact on income in 1978 of a job training program") +
+      labs(x = "Estimated treatment effect",
+           caption = "Lalonde's 1986 data on a job training program",
+           fill = "")
 dev.off()
 
-# biases:
+# biases revealed by the bootstrap:
 booted
 
-# confidence intervals:
-boot.ci(booted, index = 1, type = "perc")
-boot.ci(booted, index = 2, type = "perc")
-boot.ci(booted, index = 3, type = "perc")
 
+
+convert_pngs("0090")

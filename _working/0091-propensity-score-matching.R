@@ -1,4 +1,14 @@
-
+library(tidyverse)
+library(forcats)
+library(scales)
+library(MASS)              # for mvrnorm
+library(clusterGeneration) # for genPositiveDefMat
+library(boot)              # for inv.logit
+library(testthat)          # for expect_equal
+library(MatchIt)
+library(boot)              # for bootstrapping
+library(doParallel)        # for parallel processing
+library(foreach)
 
 #============roll your own nearest neighbour matching with replacement===========
 #' Helper function for matching a number to a vector
