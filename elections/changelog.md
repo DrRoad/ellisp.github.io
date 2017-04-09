@@ -10,6 +10,7 @@ socialimage: /img/gam-vote-predictions.png
 
 All dates and times are New Zealand time.
 
+- *9 April 2017* Add more variance in from the process of estimating house effects.  This adds materially to the uncertainty for New Zealand First in particular, which is indicative of the somewhat sketchy record of previous polls in estimating New Zealand First vote.
 - *9 April 2017* Add a histogram of individual party seat expectations
 - *27 March 2017 19:30* Fixed a problem where parties with extremely low predicted party vote also got extremely high variance, so a small number of simulations allocated them 20-30% of the party vote.  Net impact was to reduce the importance of Mana party marginally.
 - *26 March 2017 20:10* Updated with one more opinion poll
