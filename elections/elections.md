@@ -27,6 +27,10 @@ The scenarios outlined above are defined as:
 
 For simplicity of presentation, no attempt has been made to identify separately all possible scenarios encompassed in the outcomes described above.
 
+Here are the actual project seat counts. Note that there is correlation between the predicted seat counts of various parties, which stops us from just adding up the likely values of the various parties.  For example, if Labour does particularly well, it will be at least to some extent at the expense of the Greens (going on past results).  the projections at the top of this page take this into account, but it isn't visible in the histograms in the next chart:
+
+<img src='/img/gam-final-chances-histogram.svg' width = '100%'>
+
 ## How does it work?
 
 The predictions are simulations based on a model which smooths all polling numbers since the 2014 election and projects the trend forward.  The model controls for "house effects", estimates of the amount that different polling firms over- or under-estimate the party vote of different political parties, based on polling firms' performance in the four previous elections.  This adjustment process (amongst other minor changes) generally slightly increases the expected vote for New Zealand First, and decreases it for the Greens, compared to published poll numbers.
@@ -39,7 +43,7 @@ The model provides an estimate of the range of party vote outcomes for each of n
 
 Party vote is strongly (usually negatively) correlated between parties because parties are competing for the same voters.  I get around this by modelling vote as a multivariate normal distribution on a logit scale.  The mean and covariance matrix of the distribution on election day are estimated from a generalized additive model implemented in Simon Woods' `mgcv` R package.  Simulations are done with `mvrnorm` from Bill Venables' and Brian Ripley's `MASS` R package.  
 
-The simulations take into account not only the uncertainty in the forecast of the underlying party vote, but the randomness associated with individual observations, of which I count election day as one.  This may seem surprising as the opinion polls are based on small samples (usually around 900 respondents) whereas the election result has no sampling error at all.  But if we accept (as I do) that most of the randomness in the eventual result comes from *non-sampling* error it makes sense to treat election day as just yet another random observation - based on the underlying party vote tendency no doubt, but with a healthy dose of individual randomness itself.  Let's put it another way - my gut feel is that most probabilistic models greatly under-estimate the uncertainty in translating from polls to election results (certainly this happened for nearly everyone apart from FiveThirtyEight in the 2016 US Presidential election), so it makes sense to err on the side of uncertainty.
+The simulations take into account not only the uncertainty in the forecast of the underlying party vote, but the randomness associated with individual election days.  This is the individual level randomness from our statistical model, even after we have an uncertain estimate of the expected value of vote for each party.  
 
 <img src='/img/gam-vote-predictions-density.svg' width='100%'>
 
