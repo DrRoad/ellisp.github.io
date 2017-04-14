@@ -1,69 +1,16 @@
 library(tidyverse)
+library(magrittr)
 library(forcats)
 library(scales)
+library(MatchIt)           # for propensity score matching
 library(MASS)              # for mvrnorm
 library(clusterGeneration) # for genPositiveDefMat
 library(boot)              # for inv.logit
 library(testthat)          # for expect_equal
-library(MatchIt)
-library(boot)              # for bootstrapping
 library(doParallel)        # for parallel processing
 library(foreach)
 
-#============roll your own nearest neighbour matching with replacement===========
-#' Helper function for matching a number to a vector
-#' @param x1 single number
-#' @param x2 vector
-#' @value index indicating which element of x2 is closest to x1
-min_diff = function(x1, x2){ 
-   if(length(x1) != 1){stop("x1 should be a single number")}
-   which.min(abs(x1 - x2)) 
-} 
-expect_equal(min_diff(4.3, 1:10), 4)
 
-model <- glm(treat ~ age + educ + black + hispan + nodegree + married +  re74 + re75, 
-             data = lalonde, family = "binomial")
-# Compare this to the model used by matchit earlier.  Identical:
-cbind(coef(match_model$model), coef(model))
-
-lalonde$prop_scores <- predict(model, type = "link")
-
-lalonde %>%
-   mutate(treat = as.factor(treat)) %>%
-   ggplot(aes(x = prop_scores, fill = treat))  + 
-   geom_density(alpha = 0.5) +
-   ggtitle("Propensity for getting the treatment",
-           "split by whether the subject actually did get the treatment or not") +
-   labs(x = "Propensity to get the treatment (logit scale, so 0 means 50% chance)",
-        caption = "Lalonde's 1986 data on a job training program")
-
-
-untreated_group <- filter(lalonde, treat == 0)
-treatment_group <- filter(lalonde, treat == 1)
-
-matches <- sapply(treatment_group$prop_scores, min_diff, untreated_group$prop_scores)
-expect_equal(length(matches), nrow(treatment_group))
-
-control_group <- untreated_group[matches, ]
-
-rbind(control_group[1, ], treatment_group[1, ])
-rbind(control_group[2, ], treatment_group[2, ])
-rbind(control_group[3, ], treatment_group[3, ])
-
-# Compare the two groups:
-c(mean(control_group$re78), mean(treatment_group$re78))
-# Or by removing the duplicates from the control group where more than one
-# treatment matched (because this seems to be how MatchIt does it):
-c(mean(distinct(control_group)$re78), mean(treatment_group$re78))
-
-# Choose one of the large variety of propensity score matching methods to model propensity
-# Note - there is some randomness here, and using set.seed() doesn't make it reproducible:
-matchit(treat ~ age + educ + black + hispan + nodegree + married + re74 + re75, 
-        data = lalonde, method = "nearest", replace = TRUE) %>%
-   match.data() %>%
-   group_by(treat) %>%
-   summarise(Income1978 = mean(re78),
-             n = n())
 
 
 #==========explore omitted variable bias==================
@@ -99,79 +46,104 @@ generate_data <- function(n = 50, k = 5, p = 0.1,
    return(the_data)
 }
 
-the_data <- generate_data(n = 1000, k = 100, seed = 124)
-
-# full, correct model.  
-# True value of treatment's coefficient is 1
-mod <- lm(y ~ ., data = the_data)
-confint(mod)["treatment", ]
-
-
 #=====================loop=================
+# sequence
+
+# Set up a cluster for parallel computing
+cluster <- makeCluster(7) # only any good if you have at least 7 processors :)
+registerDoParallel(cluster)
+
 clusterEvalQ(cluster, {
    library(foreach)
+   library(tidyverse)
+   library(MatchIt)
+   library(magrittr)
 })
-ns <- c(500, 1000, 2000, 5000, 10000, 20000, 10^5)
-#ns <- c(10000)
-#ns <- c(500, 1000, 2000)
 
-results <- foreach(j = 1:length(ns), .combine = rbind) %do% {
-   tmp1 <- foreach(i=1:7, .combine = rbind) %dopar% {
-      the_data <- generate_data(n = ns[j], k = 100, seed = i * 100 + j)
+# Different sample sizes to try:
+n_options <- c(500, 1000, 2000, 5000, 10000, 20000, 10^5)
+# n_options <- c(500, 1000, 2000) # used during dev
+# Different number of variables to include:
+var_options <- 1:10 * 10
+# Number of reps to do of each combination of sample size and variables in:
+reps <- 30
+
+# loop through all the options for sample size.  Note this loop is serial, not parallel:
+results <- foreach(j = 1:length(n_options), .combine = rbind) %do% {
+   
+   # parallelising this next loop, but not the others.  So each rep of the given
+   # sample size will be given its own processor:
+   tmp1 <- foreach(i = 1:reps, .combine = rbind) %dopar% {
+      the_data <- generate_data(n = n_options[j], k = 100, seed = i * 100 + j)
       
-      treatments <- dplyr::filter(the_data, treatment == 1)
-      controls <- dplyr::filter(the_data, treatment == 0)
-      n_treatment <- nrow(treatments)
+      # treatments <- dplyr::filter(the_data, treatment == 1)
+      # controls <- dplyr::filter(the_data, treatment == 0)
+      # n_treatment <- nrow(treatments)
       
-      tmp2 <- foreach(vars_in = 1:100, .combine = rbind) %do% {
+      # Loop through all the different numbers of observed explanatory variables.
+      # Note this is done in serial too, so a single processor, given its own
+      # rep dataset of a particular sample size will perform all the different
+      # matchings and regressions for different selections of variables.  This
+      # is hoped to be a good compromise between overall CPU utilisation and
+      # not swapping data and stuff in and out of processors too frequently:
+      tmp2 <- foreach(v = 1:length(var_options), .combine = rbind) %do% {
+         vars_in <- 1:var_options[v]
+         incomplete_data <- dplyr::select(the_data, vars_in, treatment, y)
          
+         #-----------------Simple regression-----------
+         mod1 <- lm(y ~ ., data = incomplete_data)
+         result_lm <- coef(mod1)["treatment"]
          
-         mod <- lm(y ~ ., data = dplyr::select(the_data, 1:vars_in, treatment, y))
-         result_lm <- coef(mod)["treatment"]
+         #----------propensity score calculation----------
+         the_form <- as.formula(
+            paste("treatment ~ ", paste(paste0("V", vars_in), collapse = " + "))
+         )
          
-         # propensity score matching
-         prop_model <- glm(treatment ~ ., family = "quasibinomial", 
-                           data = dplyr::select(the_data, 1:vars_in, treatment))
+         # I considered comparing genetic matching but it is slower and not really the point
+         # of today's piece, so just using the default nearest neighbour matching method
+         match_model <- matchit(the_form, data = incomplete_data)
+         match_data <- match.data(match_model)
          
-         propensity_control <- predict(prop_model,   newdata = controls,   type = "response")
-         propensity_treatment <- predict(prop_model,   newdata = treatments,   type = "response")
+         #---------------compare means of matched groups----------------
+         result_psm <- with(match_data,
+              mean(y[treatment == 1]) -
+                 mean(y[treatment == 0]))
          
-         # probabilistic sampling
-         samp_control <- controls[sample(names(propensity_control), size = n_treatment, 
-                                         replace = FALSE, prob = propensity_control), ]
-         result_pm1 <- mean(treatments$y) - mean(samp_control$y)
-         
-         # matching by nearest neighbour
-         propensity_control_logit <- predict(prop_model,   newdata = controls,   type = "link")
-         propensity_treatment_logit <- predict(prop_model,   newdata = treatments,   type = "link")
-         
-         samp_control <- controls[sapply(propensity_treatment_logit, min_diff, propensity_control_logit), ]
-         result_pm2 <- mean(treatments$y) - mean(samp_control$y)
-         
+         #--------------regression with matched groups-----------------
+         mod2 <- lm(y ~ ., data = match_data)
+         result_psm_lm <- coef(mod2)["treatment"]
+
+         #--------------------regression with full data and IPTW weights----------
          # IPTW - Inverse Probability of Treatment Weights
          # keep all the data but use propensity to generate weights.
          # has the advantage of keeping all the data rather than just a "matched" control sample.
-         result_pm3 <- weighted.mean(treatments$y, 1 / propensity_treatment) - 
-            weighted.mean(controls$y, 1 / ( 1 - propensity_control))
+         wgts <- incomplete_data %>%
+            mutate(props = predict(match_model$model, newdata = incomplete_data, type = "response"),
+                   wgts  = 1/ props * treatment + 1 / (1 - props) * ( 1 - treatment)) %$%
+            wgts
          
-         c(result_lm, result_pm1, result_pm2, result_pm3)
-      }
+         mod3 <- lm(y ~ ., data = incomplete_data, weights = wgts)
+         result_iptw_lm <- coef(mod3)["treatment"]
+         
+         #--------------return results-------------
+         c(result_lm, result_psm, result_psm_lm, result_iptw_lm)
+      }  # end and repeat for each value of the number of explanatory variables to include in `var_options`
+      
       tmp2 <- as.data.frame(tmp2)
-      tmp2$n <- ns[j]
-      tmp2$vars_in <- 1:100
+      tmp2$n <- n_options[j]
+      tmp2$vars_in <- var_options
       tmp2$dataset <- i
       row.names(tmp2) <- NULL
       tmp2
-   }
-   tmp1
+   }     # end and repeat for each of `reps` repetitions of new datasets of same sample size
    
-}
+   tmp1
+}        # end and repeat for each of sample size options in `n_options``
+
+names(results)[1:4] <- c("Straight regression", "Propensity matching",
+                         "Propensity matching and regression", "Inverse weighting and regression")
 
 #=============================presentation====================
-
-names(results)[1:4] <- c("Straight regression", "Probabilistic matching",
-                         "Nearest matching", "Inverse weighting")
-
 results %>%
    filter(n == max(n)) %>%
    gather(method, value, -vars_in, -dataset, -n) %>%
@@ -186,7 +158,7 @@ results %>%
 
 # i don't understand why it seems to do better with more variables missing
 results %>%
-   filter(vars_in %in% c(10, 100)) %>%
+#   filter(vars_in %in% c(10, 100)) %>%
    gather(method, value, -vars_in, -dataset, -n) %>%
    mutate(AbsError = abs(value - 1)) %>%
    mutate(method = fct_reorder(method, -AbsError)) %>% 

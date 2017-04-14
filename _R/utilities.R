@@ -13,7 +13,8 @@ convert_pngs <- function(postnumber){
 
 convert_election_pngs <- function(files = c("gam-final-chances-bar.svg",
                                             "gam-vote-predictions.svg",
-                                            "gam-vote-predictions-density.svg")){
+                                            "gam-vote-predictions-density.svg",
+                                            "gam-final-chances-histogram.svg")){
    setwd("../img")
    for(i in files){
       output <- gsub("svg$", "png", i)
