@@ -312,7 +312,7 @@ results %>%
    scale_colour_manual(values = palette[c(1,2,4,3)]) +
    theme(legend.position = "right",
          panel.grid.minor = element_blank()) +
-   ggtitle("Mean squared error of estimated treatment effect",
+   ggtitle("Absolute error of estimated treatment effect",
            "Different methods, number of variables included (out of 100), sample sizes.
 A sample size of 500 with all 100 important variables included is as good as 100,000 with only 90 variables.") +
    labs(x = "Sample size", colour = "") 
