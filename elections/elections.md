@@ -25,7 +25,7 @@ The scenarios outlined above are defined as:
 - *"NZ First needed to make government"* - In this scenario, neither the National/M&#257;ori/ACT/United Future nor the Labour/Green combination would have a majority of seats, but one or (more frequently) either of them could form a majority with support from New Zealand First.  Note that this includes some scenarios where Labour + Greens + New Zealand First seats exactly tie with National + M&#257;ori + ACT + United Future.
 - Other scenarios should be self-explanatory
 
-For simplicity of presentation, no attempt has been made to identify separately all possible scenarios encompassed in the outcomes described above.
+For simplicity of presentation, no attempt has been made to identify separately all possible scenarios encompassed in the outcomes described above.  You can play at [building your own coalition with an interactive web app](https://ellisp.shinyapps.io/nz-election-2017/) which also lets you tweak the assumptions of allocation of nine key electorate seats (see below).
 
 Here are the actual project seat counts. Note that there is correlation between the predicted seat counts of various parties, which stops us from just adding up the likely values of the various parties.  For example, if Labour does particularly well, it will be at least to some extent at the expense of the Greens (going on past results).  the projections at the top of this page take this into account, but it isn't visible in the histograms in the next chart:
 
@@ -62,6 +62,8 @@ The graphic below shows the simulated outcomes in terms of seats for the various
 <img src='/img/gam-results-pairs.svg' width='100%'>
 
 <img src='/img/gam-results-density.svg' width='100%'>
+
+You can explore a wider range of coalition possibilities, and tweak the assumptions for individual electorates, with this [interactive web app](https://ellisp.shinyapps.io/nz-election-2017/).
 
 ## Predicting the 2014 election from March 2014 data?
 
