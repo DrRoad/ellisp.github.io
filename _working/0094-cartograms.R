@@ -93,3 +93,5 @@ variables <- gsub("^Prop", "", variables)
 variables <- gsub("2013", "", variables)
 save(variables, file = "0094-cartograms/variables.rda")
 save(reg_cart_simpl, file = "0094-cartograms/reg_cart_simpl.rda")
+
+rsconnect::deployApp("0094-cartograms", appName = "nzcensus-cartograms", account = "ellisp")

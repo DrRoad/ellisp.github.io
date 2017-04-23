@@ -13,7 +13,6 @@ shinyServer(function(input, output) {
    var <- reactive({
       var_name <- paste0("Prop", input$variable, "2013")
       value <- comb_data[ , var_name]
-      print(range(value))
       return(value)
    })
    
