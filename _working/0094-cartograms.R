@@ -1,18 +1,22 @@
 
 # Install the latest version of the nzcensus package if not already installed:
-# devtools::install_github("ellisp/nzelect/pkg2")
+devtools::install_github("ellisp/nzelect/pkg2")
+
+# Install Ministry of Business, Innovation and Employment's NZ maps package,
+# only needed for region_simpl, used to illustrate a "normal" map.
+devtools::install_github("nz-mbie/mbiemaps-public/pkg")
 
 library(recmap)
 library(nzcensus)
 library(tidyverse)
 library(viridis)
-
+library(mbiemaps) 
 
 colour_scale <- function(x, palette = viridis(100)){
    levs <- round(x / max(x, na.rm = TRUE) * length(palette))
    return(as.character(palette[levs]))
 }
-#x <- comb_data$PropUnemploymentBenefit2013
+
 make_legend <- function(x, palette = viridis(100), title = NULL, 
                         location = "right", 
                         multiplier = 100, digits = 1, ...){
@@ -49,19 +53,26 @@ make_legend(tmp$value, title = "Proportion of all individuals\non unemployment b
 dev.off()
 
 #===============shape-preserving cartogram=============
-# change to "Name" when have new version
 comb_data <- reg_cart_simpl@data %>%
    left_join(REGC2013, by = c("Name" = "REGC2013_N")) 
 
-svg("../img/0094-reg-cart.svg", 8, 7)
-   par(family = "myfont", font.main= 1, fg = "grey75")
+svg("../img/0094-reg-cart.svg", 16, 7)
+   par(family = "myfont", font.main= 1, fg = "grey75", mfrow = c(1, 2))
    plot(reg_cart_simpl,
      col = colour_scale(comb_data$PropUnemploymentBenefit2013))
    title(main = "Unemployment by region; regions sized by usual resident population")
    make_legend(comb_data$PropUnemploymentBenefit2013, 
                title = "Proportion of all individuals\non unemployment benefit",
                location = "left", cex = 0.8)
+   
+   # compare with the standard regions map, from the mbiemaps package
+   data(region_simpl)
+   plot(region_simpl, col = colour_scale(comb_data$PropUnemploymentBenefit2013))
+   title(main = "Regions as they are shaped and sized geographically")
+   
+   
 dev.off()
+
 
 svg("../img/0094-reg-cart-2.svg", 8, 7)
 par(family = "myfont", font.main= 1, fg = "grey75")
@@ -95,3 +106,5 @@ save(variables, file = "0094-cartograms/variables.rda")
 save(reg_cart_simpl, file = "0094-cartograms/reg_cart_simpl.rda")
 
 rsconnect::deployApp("0094-cartograms", appName = "nzcensus-cartograms", account = "ellisp")
+
+convert_pngs("0094")
