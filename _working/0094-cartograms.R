@@ -1,10 +1,10 @@
 
 # Install the latest version of the nzcensus package if not already installed:
-devtools::install_github("ellisp/nzelect/pkg2")
+# devtools::install_github("ellisp/nzelect/pkg2", force = TRUE)
 
 # Install Ministry of Business, Innovation and Employment's NZ maps package,
 # only needed for region_simpl, used to illustrate a "normal" map.
-devtools::install_github("nz-mbie/mbiemaps-public/pkg")
+# devtools::install_github("nz-mbie/mbiemaps-public/pkg")
 
 library(recmap)
 library(nzcensus)
@@ -53,12 +53,12 @@ make_legend(tmp$value, title = "Proportion of all individuals\non unemployment b
 dev.off()
 
 #===============shape-preserving cartogram=============
-comb_data <- reg_cart_simpl@data %>%
+comb_data <- reg_cart@data %>%
    left_join(REGC2013, by = c("Name" = "REGC2013_N")) 
 
 svg("../img/0094-reg-cart.svg", 16, 7)
    par(family = "myfont", font.main= 1, fg = "grey75", mfrow = c(1, 2))
-   plot(reg_cart_simpl,
+   plot(reg_cart,
      col = colour_scale(comb_data$PropUnemploymentBenefit2013))
    title(main = "Unemployment by region; regions sized by usual resident population")
    make_legend(comb_data$PropUnemploymentBenefit2013, 
@@ -76,7 +76,7 @@ dev.off()
 
 svg("../img/0094-reg-cart-2.svg", 8, 7)
 par(family = "myfont", font.main= 1, fg = "grey75")
-plot(reg_cart_simpl,
+plot(reg_cart,
      col = colour_scale(comb_data$PropSmoker2013))
 title(main = "Smokers by region; regions sized by usual resident population")
 make_legend(comb_data$PropSmoker2013, 
@@ -87,7 +87,7 @@ dev.off()
 
 svg("../img/0094-reg-cart-3.svg", 8, 7)
 par(family = "myfont", font.main= 1, fg = "grey75")
-plot(reg_cart_simpl,
+plot(reg_cart,
      col = colour_scale(comb_data$MedianRentHH2013))
 title(main = "Median rent; regions sized by usual resident population")
 make_legend(comb_data$MedianRentHH2013, 
@@ -103,7 +103,7 @@ variables <- names(comb_data)[grepl("^Prop", names(comb_data))]
 variables <- gsub("^Prop", "", variables)
 variables <- gsub("2013", "", variables)
 save(variables, file = "0094-cartograms/variables.rda")
-save(reg_cart_simpl, file = "0094-cartograms/reg_cart_simpl.rda")
+save(reg_cart, file = "0094-cartograms/reg_cart.rda")
 
 rsconnect::deployApp("0094-cartograms", appName = "nzcensus-cartograms", account = "ellisp")
 

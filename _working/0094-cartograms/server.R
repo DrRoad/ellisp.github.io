@@ -6,7 +6,7 @@ camel_to_english <- function(camelCase){
 }
 
 load("comb_data.rda")
-load("reg_cart_simpl.rda")
+load("reg_cart.rda")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -17,7 +17,7 @@ shinyServer(function(input, output) {
    })
    
    the_data <- reactive({
-      tmp <- reg_cart_simpl
+      tmp <- reg_cart
       tmp@data[ ,"value"] <- var()
       tmp@data[ , "label"] <-paste0(tmp@data$Name, " ", round(tmp@data$value * 100, 1), "%")
       return(tmp)
