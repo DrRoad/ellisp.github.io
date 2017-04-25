@@ -99,11 +99,11 @@ The R code to produce this from an existing cartogram set of boundaries (`reg_ca
 
 {% highlight R %}
 #===============shape-preserving cartogram=============
-comb_data <- reg_cart_simpl@data %>%
+comb_data <- reg_cart@data %>%
    left_join(REGC2013, by = c("Name" = "REGC2013_N")) 
 
 par(font.main= 1, fg = "grey75", mfrow = c(1, 2))
-plot(reg_cart_simpl,
+plot(reg_cart,
 	col = colour_scale(comb_data$PropUnemploymentBenefit2013))
 
 title(main = "Unemployment by region; regions sized by usual resident population")
