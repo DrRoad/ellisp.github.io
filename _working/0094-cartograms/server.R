@@ -5,19 +5,39 @@ camel_to_english <- function(camelCase){
    return(gsub("([a-z])([A-Z])", "\\1 \\L\\2", camelCase, perl = TRUE))
 }
 
-load("comb_data.rda")
+load("comb_data_reg.rda")
+load("comb_data_ta.rda")
 load("reg_cart.rda")
+load("ta_cart.rda")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
+   map_data <- reactive({
+      if(input$area == "Regional Council"){
+         tmp <- reg_cart
+      } else {
+         tmp <- ta_cart
+      }
+      return(tmp)
+   })
+   
+   numeric_data <- reactive({
+      if(input$area == "Regional Council"){
+         tmp <- comb_data_reg
+      } else {
+         tmp <- comb_data_ta
+      }
+      return(tmp)
+   })
+   
    var <- reactive({
       var_name <- paste0("Prop", input$variable, "2013")
-      value <- comb_data[ , var_name]
+      value <- numeric_data()[ , var_name]
       return(value)
    })
    
    the_data <- reactive({
-      tmp <- reg_cart
+      tmp <- map_data()
       tmp@data[ ,"value"] <- var()
       tmp@data[ , "label"] <-paste0(tmp@data$Name, " ", round(tmp@data$value * 100, 1), "%")
       return(tmp)

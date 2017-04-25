@@ -10,7 +10,12 @@ shinyUI(fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-       selectInput("variable", "Variable for colour", choices = variables, selected = "NoReligion"),
+       radioButtons("area", "Area type",
+                    choices = c("Regional Council", "Territorial Authority"),
+                    selected = "Territorial Authority"),
+       selectInput("variable", "Variable for colour", 
+                   choices = variables, 
+                   selected = "NoQualification"),
        p("...as a proportion of all dwellings, households, or individuals (whichever is relevant)."),
        hr(),
        selectInput("colour_scheme", "Colour Scheme",
