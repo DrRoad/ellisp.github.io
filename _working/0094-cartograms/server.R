@@ -1,5 +1,6 @@
 library(shiny)
 library(leaflet)
+library(leaflet.extras)
 library(nzcensus)
 
 camel_to_english <- function(camelCase){
@@ -73,7 +74,8 @@ shinyServer(function(input, output) {
                    labFormat = labelFormat(
                       transform = function(x){x * 100}, 
                       suffix = "%")
-         )
+         )  %>%
+         addFullscreenControl(pseudoFullscreen = TRUE)
       }) 
    output$myMap <- renderLeaflet(map())
    
