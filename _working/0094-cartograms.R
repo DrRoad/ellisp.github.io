@@ -96,15 +96,5 @@ make_legend(comb_data$MedianRentHH2013,
             multiplier = 1, digits = 0)
 dev.off()
 
-#==========prepare for shiny app==============
-
-save(comb_data, file = "0094-cartograms/comb_data.rda")
-variables <- names(comb_data)[grepl("^Prop", names(comb_data))]
-variables <- gsub("^Prop", "", variables)
-variables <- gsub("2013", "", variables)
-save(variables, file = "0094-cartograms/variables.rda")
-save(reg_cart, file = "0094-cartograms/reg_cart.rda")
-
-rsconnect::deployApp("0094-cartograms", appName = "nzcensus-cartograms", account = "ellisp")
 
 convert_pngs("0094")

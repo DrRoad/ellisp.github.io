@@ -35,15 +35,18 @@ dev.off()
 comb_data_reg <- reg_cart@data %>%
    left_join(REGC2013, by = c("Name" = "REGC2013_N")) 
 
+comb_data_au <- au_cart@data %>%
+   left_join(AreaUnits2013, by = c("Name" = "AU_NAM")) 
+
+
+
+save(comb_data_au, file = "0094-cartograms/comb_data_au.rda")
 save(comb_data_ta, file = "0094-cartograms/comb_data_ta.rda")
 save(comb_data_reg, file = "0094-cartograms/comb_data_reg.rda")
 variables <- names(comb_data_reg)[grepl("^Prop", names(comb_data_reg))]
 variables <- gsub("^Prop", "", variables)
 variables <- gsub("2013", "", variables)
 save(variables, file = "0094-cartograms/variables.rda")
-
-save(reg_cart, file = "0094-cartograms/reg_cart.rda")
-save(ta_cart, file = "0094-cartograms/ta_cart.rda")
 
 # rsconnect::deployApp("0094-cartograms", appName = "nzcensus-cartograms", account = "ellisp")
 

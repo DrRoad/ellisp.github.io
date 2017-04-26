@@ -11,7 +11,7 @@ shinyUI(fluidPage(
   sidebarLayout(
     sidebarPanel(
        radioButtons("area", "Area type",
-                    choices = c("Regional Council", "Territorial Authority"),
+                    choices = c("Regional Council", "Territorial Authority", "Area Unit"),
                     selected = "Territorial Authority"),
        selectInput("variable", "Variable for colour", 
                    choices = variables, 

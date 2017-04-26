@@ -1,5 +1,6 @@
 library(shiny)
 library(leaflet)
+library(nzcensus)
 
 camel_to_english <- function(camelCase){
    return(gsub("([a-z])([A-Z])", "\\1 \\L\\2", camelCase, perl = TRUE))
@@ -7,8 +8,7 @@ camel_to_english <- function(camelCase){
 
 load("comb_data_reg.rda")
 load("comb_data_ta.rda")
-load("reg_cart.rda")
-load("ta_cart.rda")
+load("comb_data_au.rda")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -16,7 +16,12 @@ shinyServer(function(input, output) {
       if(input$area == "Regional Council"){
          tmp <- reg_cart
       } else {
-         tmp <- ta_cart
+         if(input$area == "Territorial Authority"){
+            tmp <- ta_cart   
+         } else {
+            tmp <- au_cart
+         }
+         
       }
       return(tmp)
    })
@@ -25,8 +30,12 @@ shinyServer(function(input, output) {
       if(input$area == "Regional Council"){
          tmp <- comb_data_reg
       } else {
-         tmp <- comb_data_ta
-      }
+         if(input$area == "Territorial Authority"){
+            tmp <- comb_data_ta
+         } else {
+            tmp <- comb_data_au  
+         }
+      } 
       return(tmp)
    })
    
@@ -52,12 +61,14 @@ shinyServer(function(input, output) {
       leaflet() %>%
       addPolygons(color = "#444444", weight = 1,
          fillOpacity = 1,
-         fillColor = ~colorNumeric(input$colour_scheme, range(var()), reverse = colour_reverse())(value),
+         fillColor = ~colorNumeric(palette = input$colour_scheme, 
+                                   domain = range(var(), na.rm = TRUE), 
+                                   reverse = colour_reverse())(value),
          label = ~label,
          highlightOptions = highlightOptions(color = "black", weight = 2,
                                              bringToFront = TRUE)) %>%
-         addLegend(pal = colorNumeric(input$colour_scheme, range(var()), reverse = colour_reverse()), 
-                   values = range(var()), bins = 5, opacity = 1, 
+         addLegend(pal = colorNumeric(input$colour_scheme, range(var(), na.rm = TRUE), reverse = colour_reverse()), 
+                   values = range(var(), na.rm = TRUE), bins = 5, opacity = 1, 
                    title = "Percentage",
                    labFormat = labelFormat(
                       transform = function(x){x * 100}, 
@@ -73,8 +84,5 @@ shinyServer(function(input, output) {
    })
    
    output$the_title <- renderText(the_title())
-
-
-      
-   
 })
+
