@@ -10,6 +10,7 @@ socialimage: /img/gam-vote-predictions.png
 
 All dates and times are New Zealand time.
 
+- *29 April 2017* Add an extra poll.  Net impact is to very slightly decrease expected Labour vote.  Most probable outcome is still about 80% chance of New Zealand First being needed for a coalition government.  Also, rejigged the main page layout a bit (put all the 2014 predictions together at the end, and the 2017 prediction graphic at the top).
 - *16 April 2017* Add an [interactive web app](https://ellisp.shinyapps.io/nz-election-2017/) to "build your own coalition" and to explore the assumptions in individual electorate seats.  Also increased the number of simulations used for the main page from 1,000 to 10,000.
 - *9 April 2017* Add more variance in from the process of estimating house effects.  This adds materially to the uncertainty for New Zealand First in particular, which is indicative of the somewhat sketchy record of previous polls in estimating New Zealand First vote.
 - *9 April 2017* Add a histogram of individual party seat expectations

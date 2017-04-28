@@ -6,6 +6,8 @@ socialimage: /img/gam-vote-predictions.png
 ---
 <p></p>
 
+<img src='/img/gam-final-chances-bar.svg' width='100%'>
+
 This page provides experimental probabilistic predictions for the 2017 New Zealand General Election.  It draws on multiple opinion polls, but goes a step beyond a straightforward poll aggregator in that the estimated voting intention from successive polls is used to forecast the chances of each party to actually win seats on election day, taking into account uncertainty.  Polling results are also adjusted to take into account different polling firms' past performance in predicting different parties' results.
 
 This page will be updated periodically as more data become available, or as I change my ideas about modelling strategy.  
@@ -14,14 +16,9 @@ This page will be updated periodically as more data become available, or as I ch
 - Source code for the analysis, including all committed changes, is [available in the nz-election-forecast repository on GitHub](https://github.com/ellisp/nz-election-forecast/)
 - Source code for the write up, including all committed changes, is [available in my blog repository on GitHub](https://github.com/ellisp/ellisp.github.io/tree/source/elections)
 
-Let's look at the big picture predicted result, and compare it to what we would have predicted with the same method if we applied it in March 2014 six months before the last election:
-
-<img src='/img/gam-final-chances-bar.svg' width='100%'>
-<img src='/img/gam-final-chances-bar-2014.svg' width='100%'>
-
 The scenarios outlined above are defined as:
 
-- *"National led coalition similar to 2014" (or 2011)* - Under this outcome, the National, M&#257;ori, ACT and United Future parties between them would have a majority of seats in Parliament (as per the post-2014 government); but National do not have enough to govern by themselves.  This scenario does not distinguish between the many possible subsets of this outcome (eg many of these simulated results involve one of the coalition partners not being essential to form a government).
+- *"National led coalition similar to 2014"* - Under this outcome, the National, M&#257;ori, ACT and United Future parties between them would have a majority of seats in Parliament (as per the post-2014 government); but National do not have enough to govern by themselves.  This scenario does not distinguish between the many possible subsets of this outcome (eg many of these simulated results involve one of the coalition partners not being essential to form a government).
 - *"NZ First needed to make government"* - In this scenario, neither the National/M&#257;ori/ACT/United Future nor the Labour/Green combination would have a majority of seats, but one or (more frequently) either of them could form a majority with support from New Zealand First.  Note that this includes some scenarios where Labour + Greens + New Zealand First seats exactly tie with National + M&#257;ori + ACT + United Future.
 - Other scenarios should be self-explanatory
 
@@ -69,7 +66,7 @@ You can explore a wider range of coalition possibilities, and tweak the assumpti
 
 The test for any forecasting method is how it goes at predicting real life results, pretending to come from a position of ignorance.  So I used the same method to predict the results of the 20 September 2014 election, limiting myself to data up to 20 March 2014.  This meant repeating the house effects estimation with a smaller dataset, refitting the models, etc.  I cut a few corners, particularly on the M&#257;ori electorates where I just allocated them 50/50 to Labour or someone else; I can't realistically say what arbitrary guess I would have made three years ago, but I don't think it makes that much difference.  
 
-Some results are shown below.  It's not too bad for a six-month out prediction.  [In the end](http://www.elections.org.nz/news-media/new-zealand-2014-general-election-official-results), the Green party exceeded these expectations with 10.7% of the party vote, and New Zealand First got 8.7% (out performing the polls materially).  Labour under-performed compared to this retrospective prediction, getting only 25.1% of the party vote.  The downwards curve in intent to vote for Labour in that election cycle was only just becoming apparent six months in advance - see the chart below.  The National Party final party vote in 2014 was 47.0%, within the prediction interval.  
+The results aren't too bad for a six-month out prediction.  [In the end](http://www.elections.org.nz/news-media/new-zealand-2014-general-election-official-results), the Green party exceeded these expectations with 10.7% of the party vote, and New Zealand First got 8.7% (out performing the polls materially).  Labour under-performed compared to this retrospective prediction, getting only 25.1% of the party vote.  The downwards curve in intent to vote for Labour in that election cycle was only just becoming apparent six months in advance - see the chart below.  The National Party final party vote in 2014 was 47.0%, within the prediction interval.  
 
 <img src='/img/gam-vote-predictions-2014.svg' width='100%'>
 
