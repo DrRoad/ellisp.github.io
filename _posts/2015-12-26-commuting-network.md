@@ -6,6 +6,7 @@ tag:
    - DataFromTheWeb
    - NewZealand
    - OpenData
+   - Spatial
    - R
 description: Commuting patterns between districts and cities in New Zealand are used to illustrate static (for printing) and interactive (for the web) network charts with R and D3.
 image: /img/0025-commuting.svg

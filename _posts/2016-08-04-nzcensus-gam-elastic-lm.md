@@ -6,6 +6,7 @@ tag:
    - R
    - NewZealand
    - ModellingStrategy
+   - Spatial
    - OpenData
 description: Demonstration analysis of area unit demographic data from the nzcensus R package on GitHub, which is approaching more maturity and readiness for general use.
 image: /img/0046-gam-relations.svg

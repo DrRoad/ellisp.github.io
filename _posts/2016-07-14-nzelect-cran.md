@@ -6,6 +6,7 @@ tag:
    - R
    - VotingBehaviour
    - NewZealand
+   - Spatial
    - OpenData
 description: The nzelect R package is now available on CRAN; so far it has aggregate results by voting place for the New Zealand 2014 general election.
 image: /img/0049-map.svg

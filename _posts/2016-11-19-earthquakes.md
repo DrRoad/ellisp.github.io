@@ -4,6 +4,7 @@ title: Earthquake energy over time
 date: 2016-11-19
 tag: 
    - R
+   - Spatial
    - NewZealand
 description: I look more into this business of energy from earthquakes.
 image: /img/0068-quakes-p3.png

@@ -4,6 +4,7 @@ title: More cartograms of New Zealand census data (district and city level)!
 date: 2017-04-25
 tag: 
    - NewZealand
+   - Spatial
    - Shiny
    - R
 description: Shapefiles for cartogram by New Zealand Territorial Authority (ie District or City), with area proportional to population in 2013, have been added to the nzcensus package on GitHub.
