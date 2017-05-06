@@ -56,7 +56,7 @@ Seat allocation computation from the simulated party vote results uses the Saint
 
 The graphic below shows the simulated outcomes in terms of seats for the various parties in relation to eachother.  The numbers in green in the upper right of the chart are correlation coefficients between outcomes in the different simulations; for example, number of Labour and National seats are strongly negatively related to eachother: simulations where National get lots of seats generally means Labour do badly, and vice versa.
 
-<img src='/img/gam-results-pairs.svg' width='100%'>
+<img src='/img/gam-results-pairs.png' width='100%'>
 
 <img src='/img/gam-results-density.svg' width='100%'>
 

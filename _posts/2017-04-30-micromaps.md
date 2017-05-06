@@ -123,7 +123,7 @@ Note that the `lmplot` function specifies a file to print the graphic to.  I don
 
 To be sure I understood how to use the technique, I wanted to apply it to some New Zealand maps and data.  I'm used to presenting data at the Territorial Authority level in New Zealand by means of a choropleth map like this one:
 
-<img src='/img/0095-choropleth.svg' width = '100%'>
+<img src='/img/0095-choropleth.png' width = '100%'>
 
 ... which was drawn with this code, using the `TA2013` data frame of 2013 census data from my `nzcensus` package:
 
