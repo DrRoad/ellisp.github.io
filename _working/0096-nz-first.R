@@ -1,7 +1,3 @@
-
-
-# http://ellisp.github.io/blog/2016/09/18/nzes1
-
 library(tidyverse)
 library(scales)
 library(foreign)   # for importing SPSS data
@@ -10,7 +6,6 @@ library(forcats)   # for manipulating factor levels
 library(mgcv)      # for generalized additive models
 library(glmnet)    # for elastic net regularisation
 library(mice)      # for imputation
-library(mitools)   # for combining multiple imputation with survey
 library(testthat)
 library(broom)     # for reshaping model outputs
 library(stringr)   # for str_wrap
@@ -25,6 +20,8 @@ camel_to_english <- function(camelCase){
    return(gsub("([a-z])([A-Z])", "\\1 \\L\\2", camelCase, perl = TRUE))
 }
 
+# Convert five category membership question (for trade unions, business
+# associations, etc) into Yes or No.
 membership <- function(x){
    tmp <- fct_recode(x,
                      Yes = "I belong, but no one else in the house does",
@@ -38,7 +35,10 @@ membership <- function(x){
    return(tmp)
 }
 
-
+# Draw confidence interval segment chart for two types of models:
+# those with variance-covariance matrices, and hence can use confint()
+# on them; and pooled models created by with.mice() after multiple
+# imputation.
 sum_plot <- function(model, 
                      title = NULL, 
                      party = gsub("PartyVote", "", as.character(model$formula)[2]),
@@ -85,10 +85,16 @@ varlab <- cbind(attributes(nzes_orig)$variable.labels)
 
 DT::datatable(varlab)
 
+View(table(nzes_orig$dpartyvote, nzes_orig$dvpartyvote, useNA = "always"))
+table(nzes_orig$dpartyvote)
+nrow(nzes_orig)
 # note - party vote v verified party vote
 
 
 #============rationalised version of feature creation===========
+# This is a single 100 line command to aggregate various answers into
+# simpler cateogrisations, because we don't have enough data to 
+# analyse the original granular detail.
 nzes <- nzes_orig %>%
    
    # party vote:
@@ -103,9 +109,11 @@ nzes <- nzes_orig %>%
           PartyVoteGreen    = (dpartyvote2 == "Green")) %>%
    # voted at all (needed for weighting):
    mutate(Voted = 1 * (ddidvote == 1)) %>%
+   
    # Two degrees of freedom for ethnicity:
    mutate(NotEuropean = 1 - dethnicity_e,
           Maori = dethnicity_m) %>%
+   
    # Two degrees of freedom for income (lower, higher, don't know):
    mutate(HHIncome = fct_recode(dhhincome,
                                 Lower = "No income",
@@ -120,17 +128,21 @@ nzes <- nzes_orig %>%
                                 `Don't know / NA` = "Don't know"),
           HHIncome = ifelse(is.na(HHIncome), "Don't know / NA", as.character(HHIncome)),
           HHIncome = fct_infreq(HHIncome)) %>%
+   
    ## Two - four degrees of freedom for associations?
    mutate(HHMemberTradeUnion = membership(dtradeunion),
           HHMemberProfAssoc = membership(dprofassoc)) %>%
+   
    ## One degree of freedom for born in NZ
    mutate(NZBorn = ifelse(dnzborn == "New Zealand", 1, 0)
           # uncomment the next line if you want to turn NA into zero:
           # , NZBorn = ifelse(is.na(NZBorn), 0, NZBorn)
    ) %>%
+   
    ## One for sex
    mutate(Male = 1 * (dsex == "Male"),
           Male = ifelse(dsex == "Transsexual or transgender", NA, Male)) %>%
+   
    ## Two-four for age
    mutate(Age = fct_collapse(as.character(dage),
                              `18-29` = as.character(18:29),
@@ -140,40 +152,52 @@ nzes <- nzes_orig %>%
           # Age = ifelse(is.na(dage), "unknown", as.character(Age)),
           Age = fct_relevel(Age, "30-55")
    ) %>%
+   
    ## One for housing.  Note there is also an alternative question "do you or any family member own a residence"
    mutate(OwnHouseOrFlat = 1 * grepl("Own house or flat", dhousing)) %>%
+   
    # Two for religion
    mutate(Religion = fct_lump(dreligion, 2)) %>%
+   
    # One for marital status
    mutate(Marital = 1 * (dmarital == "Married, in a civil union, or living with a partner")) %>%
+   
    # One for self-identified class
    mutate(IdentifyWorkingClass = 1 * (dclass == "Working class")) %>%
-   ## Two for education
+   
+   ## Two for education (University, None, Other)
    mutate(HighestQual = fct_collapse(dedcons, University = c("Undergraduate Degree", "Postgraduate degree", "PhD")),
           HighestQual = fct_lump(HighestQual, 2),
           HighestQual = ifelse(dedcons == "Not known", NA, as.character(HighestQual)),
           HighestQual = fct_relevel(HighestQual, "Other")
    ) %>%
+   
    ## Two for working status
    mutate(WorkStatus = ifelse(!is.na(dwkpt), "Part time", NA),
           WorkStatus = ifelse(!is.na(dwkft), "Full time", WorkStatus),
           WorkStatus = ifelse(is.na(WorkStatus), "Other or unknown", WorkStatus),
           WorkStatus = fct_infreq(WorkStatus),
           Student = 1 * (!is.na(dwksch))) %>%
+   
    ## One for occupation
    mutate(SuperviseAnyone = 1 * (dsupervise == "Yes")) %>%
    # Note there is detailed occupation information (for respondent and partner)
    # but I don't think we hav eneough data to use this in the model.
+   
    ## None for industry.
    # We have industry of employhment for respondent and partner
    # but I don't think we have enough data to use this.  Plus many people
    # don't know what industry they are in anyway.
    #
+   
    ## One degree of freedom for area lived in?
    # Five nice categories here, not enough data so we'll split into one
    mutate(City = 1 * (dregsize == "A major city (over 100,000 population)")) 
 
 #============filter and stockcheck missing data===========
+# nzes_subset is a subset of all the columns in the original nzes.
+# we want a dataframe with only the variables we intend to use;
+# will use it down the track for imputation.
 nzes_subset <- nzes %>%
    select(PartyVoteNZFirst,
           PartyVoteNational,
@@ -203,28 +227,7 @@ sum(complete.cases(nzes_subset)) / nrow(nzes_subset)
 
 #===========modelling===========
 
-form <- as.formula(PartyVoteNZFirst ~ 
-                      NotEuropean + Maori + 
-                      HHIncome + 
-                      OwnHouseOrFlat +
-                      HHMemberTradeUnion + HHMemberProfAssoc +
-                      NZBorn +
-                      Religion +
-                      Marital + 
-                      HighestQual +
-                      IdentifyWorkingClass +
-                      WorkStatus +
-                      Student +
-                      SuperviseAnyone +
-                      City +
-                      Male +
-                      Age)
-
-# 29% rows missing at least one value:
-sum(complete.cases(nzes_subset)) / nrow(nzes_subset)
-
-#===========modelling===========
-
+# For convenience, here is a model formulation we'll be using several times:
 form <- as.formula(PartyVoteNZFirst ~ 
                       NotEuropean + Maori + 
                       HHIncome + 
@@ -253,7 +256,7 @@ nzes_svy1 <- svydesign(~1, data = nzes, weights = ~dwtfin)
 
 model_svy1 <- svyglm(form, design = nzes_svy1, family = "quasibinomial")
 svg("../img/0096-svyglm.svg", 8, 7)
-sum_plot(model_svy1, "Survey-specific `svyglm``, survey weights, no imputation")
+sum_plot(model_svy1, "Survey-specific `svyglm`, survey weights, no imputation")
 dev.off()
 
 model_glmw <- glm(form, data = nzes, family = "quasibinomial", weights = dwtfin)
@@ -269,9 +272,11 @@ model_gam <- gam(PartyVoteNZFirst ~
                     HHMemberTradeUnion + HHMemberProfAssoc +
                     NZBorn +
                     Religion +
-                    Marital +
+                    Marital + 
                     HighestQual +
                     IdentifyWorkingClass +
+                    WorkStatus +
+                    Student +
                     SuperviseAnyone +
                     City +
                     Male +
@@ -339,7 +344,8 @@ summary(model_ml)
 
 
 #=============bootstrap, imputation, recalibrate weights, svyglm===============
-# calculate population totals for non-vote, age, gender and education
+# First we want to explore the weights
+# Calculate population totals for non-vote, age, gender and education
 
 # Some exploration of the weights:
 mod <- lm(dwtfin ~ . -dage, data = nzes_subset)
@@ -352,7 +358,7 @@ tidy(mod) %>%
    geom_point() +
    labs(x = "Impact on weight") +
    ggtitle("Relative weights of different demographics, NZ Election Study 2014",
-           "Voters, M\u0101ori, women, older, and university qualified people are over-sampled and have low weights to compensate")
+           "Voters, M\u0101ori, women, older, and university qualified people are over-sampled\nand have low weights to compensate")
 dev.off()
 # The survey description says weights control for age, gender, education and Maori-ness and whether voted
 
@@ -391,7 +397,7 @@ imp_cal_fit <- function(x, i){
    # Resample the data
    nzes_res <- x[i, ]
    
-   # Create a complete, imputed version of the data
+   # Create a single complete, imputed version of the data
    nzes_imp <- complete(mice(nzes_res, 1, printFlag = FALSE))
    attributes(nzes_imp$Religion)$contrasts    <- NULL
    attributes(nzes_imp$WorkStatus)$contrasts  <- NULL
@@ -447,8 +453,7 @@ results <- as.data.frame(t(sapply(1:k, function(i){boot.ci(nzes_booted, type = "
 names(results) <- c("lower", "upper")
 results$term <- names(coef(model_naive))
 
-svg("../img/0096-svyglm-boot.svg", 8, 7)
-results %>%
+pb <- results %>%
    filter(term != "(Intercept)") %>%
    mutate(term = camel_to_english(term),
           mid = (lower + upper ) / 2,
@@ -457,17 +462,21 @@ results %>%
    geom_vline(xintercept = 0) +
    geom_segment(aes(x = lower, xend = upper, yend = term), 
                 colour = parties_v["NZ First"], alpha = 0.5, size = 3) +
-   ggtitle("Bootstrap, imputation, recalibrated survey weights, svyglm") +
+   ggtitle("Party vote for New Zealand First in the 2014 election",
+      "Bootstrap, imputation, recalibrated survey weights, svyglm") +
    labs(caption = "New Zealand Election Survey, analysed at https://ellispgithub.io",
         x = "Impact on log odds of voting New Zealand First",
-        y = str_wrap("Compared to 'no religion', ''age30-55', 'high household income', 'school qualification', 'working full time", 50))
+        y = str_wrap("Compared to 'no religion', 'age30-55', 'high household income', 'school qualification', 'working full time'", 50))
+
+svg("../img/0096-svyglm-boot.svg", 8, 7)
+print(pb)
 dev.off()
 
 
 
 #============multiple imputation all four main parties===============
-# see http://r-survey.r-forge.r-project.org/survey/svymi.html, but not using that here
-# see https://stats.stackexchange.com/questions/149053/questions-on-multiple-imputation-with-mice-for-a-multigroup-sem-analysis-inclu
+# see http://r-survey.r-forge.r-project.org/survey/svymi.html for an alternative way to do this
+# Also see https://stats.stackexchange.com/questions/149053/questions-on-multiple-imputation-with-mice-for-a-multigroup-sem-analysis-inclu
 
 nzes_mi <- mice(nzes_subset)
 
@@ -480,6 +489,11 @@ attributes(nzes_mi$data$HHIncome)$contrasts <- NULL
 responses <- paste0("PartyVote", c("National", "Labour", "NZFirst", "Green"))
 colours <- parties_v[c("National", "Labour", "NZ First", "Green")]
 p <- list()
+
+form_gen <- "XXX ~ NotEuropean + Maori + HHIncome + OwnHouseOrFlat +
+HHMemberTradeUnion + HHMemberProfAssoc + NZBorn + Religion +
+Marital + HighestQual + IdentifyWorkingClass + WorkStatus +
+Student + SuperviseAnyone + City + Male + Age"
 
 for(i in 1:length(responses)){
    form2 <- gsub("XXX", responses[i], form_gen)
@@ -496,3 +510,12 @@ for(i in 1:length(responses)){
 svg("../img/0096-all-parties.svg", 15, 14)
 grid.arrange(p[[1]], p[[2]], p[[3]], p[[4]])
 dev.off()
+
+convert_pngs("0096")
+
+thankr::shoulders() %>%
+   mutate(maintainer = gsub("<.*>", "", maintainer)) %>%
+   group_by(maintainer) %>%
+   summarise(no_packages = sum(no_packages)) %>%
+   arrange(desc(no_packages)) %>%
+   as.data.frame()

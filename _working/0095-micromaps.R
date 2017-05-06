@@ -285,3 +285,6 @@ lmplot(stat.data = reg_data,
                withdata.border.size = 0.5,
                nodata.border.size = 0.5)
        ))
+
+
+convert_pngs("0095")
