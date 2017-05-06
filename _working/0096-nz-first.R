@@ -83,7 +83,7 @@ nzes_orig <- read.spss("NZES2014GeneralReleaseApril16.sav",
                   to.data.frame = TRUE, trim.factor.names = TRUE)
 varlab <- cbind(attributes(nzes_orig)$variable.labels)
 
-DT::datatable(varlab)
+# DT::datatable(varlab)
 
 View(table(nzes_orig$dpartyvote, nzes_orig$dvpartyvote, useNA = "always"))
 table(nzes_orig$dpartyvote)
