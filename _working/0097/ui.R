@@ -81,7 +81,7 @@ from what individuals told researchers about their own information and voting be
 two different predictive models - a random forest from Wright and Ziegler's <a href = 'https://CRAN.R-project.org/package=ranger'>ranger</a> 
 R package, and 
 and a multinomial log-linear model from Venables and Ripley's <a href = 'http://www.stats.ox.ac.uk/pub/MASS4'>nnet</a> R package.  See 
-<a href = 'https://ellisp.github.io'>Peter's Stats Stuff</a> for details and for 
+<a href = 'https://ellisp.github.io/blog/2017/05/14/nzes-app'>Peter's Stats Stuff</a> for details and for 
 <a href = 'http://ellisp.github.io/elections/elections.html'>more elections analysis and forecasts</a>.</p>")
        
        
