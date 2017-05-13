@@ -3,14 +3,13 @@
 # Output is at https://ellisp.shinyapps.io/individual-vote-nzes/ 
 
 # Overall strategy is to create a cut down version of the NZ Election Study data,
-# fit a statistical model to it, and save it in a folder where a shiny app can access it
-
-#
+# fit a statistical model to it, and save it in a folder where a shiny app can access it.
+# Source code for the shiny app is at: 
+# https://github.com/ellisp/ellisp.github.io/tree/source/_working/0097
 
 library(tidyverse)
 library(foreign)
 library(forcats)
-library(survey)
 library(mice)
 library(h2o)
 library(testthat)
@@ -19,7 +18,7 @@ library(nnet)
 
 
 #==========data prep===============
-# Convert five category membership question (for trade unions, business
+# Function to convert five category membership question (for trade unions, business
 # associations, etc) into Yes or No.
 membership <- function(x){
    tmp <- fct_recode(x,
@@ -34,11 +33,11 @@ membership <- function(x){
    return(tmp)
 }
 
+# See previous blog posts for where this comes from:
 unzip("D:/Downloads/NZES2014GeneralReleaseApril16.sav.zip")
 
 nzes_orig <- read.spss("NZES2014GeneralReleaseApril16.sav", 
                        to.data.frame = TRUE, trim.factor.names = TRUE)
-
 
 
 #============rationalised version of feature creation===========
@@ -149,7 +148,13 @@ nzes <- nzes_orig %>%
 
 
 #------reweight to match actual party vote----------
+# I want to tweak the survey weights so the percentage party vote
+# for each party in total matches the official results, for maximum
+# calibration of the percentages people will see to actual results.
 # see http://www.elections.org.nz/news-media/new-zealand-2014-general-election-official-results
+# for the source data.
+# 
+
 actual_vote <- data_frame(
    dpartyvote2 = c("National", "Labour", "Green", "NZ First", "Other", "Did not vote"),
    freq = c(1131501, 604534, 257356, 208300, 
@@ -177,17 +182,28 @@ nzes <- nzes %>%
    select(-dwtfin, -ratio)
 
 #============more pre-processing===============
-# identify which rows will be in test and training sets
+# identify which rows will be in test and training sets.  This was used when
+# I was experimenting with neural networks and random forests in H2O, but in
+# the end I fit the models that are actually used in the shiny app with
+# just the full data set.
 nzes$dataset <- sample(c("test", "train"), prob = c(0.2, 0.8), replace = TRUE, size =nrow(nzes))
 
 # expand out to 10 times the size, number of repetitions based on the survey weight
-# (note an alternative approach would be to use weights_column, but then we can't
+# (note an alternative approach would be to use weights_column in H2O, but then we can't
 # do the multiple imputation thing)
 nzes_expanded <- nzes[rep(1:nrow(nzes), times = round(10 * nzes$weight)), ] %>%
    select(-weight) %>%
    mutate(dpartyvote2 = as.factor(dpartyvote2))
 
-# add some random noise.  Probably a more R-native way of doing this.
+# add some random noise.  Probably a more R-native way of doing this than using 
+# a loop!
+#
+# But why am I adding noise?  As a way, in combination with my imputation strategy,
+# of approaching the "dropout" of data; and of better simulating the real
+# noise we would get with a larger data set; and generally being less stuck
+# with the relatively small sample we've got.  Rembember ultimately the aim
+# is to have a set of probabilities.  Extra noise in the source data will
+# flatten those probabilities, so is not dissimilar to regularisation.
 n <- nrow(nzes_expanded)
 for(i in 1:n){
    nzes_expanded[i, sample(2:18, 1)] <- NA
@@ -197,7 +213,7 @@ for(i in 1:n){
 nzes_test <- filter(nzes_expanded, dataset == "test")
 nzes_train <- filter(nzes_expanded, dataset == "train")
 
-# impute the missing values back.  Note that this creates a single, complete
+# Impute the missing values back.  Note that this creates a single, complete
 # data set (for each of test and train), but because there are multiple copies
 # of each row as a result of the expansion by weight, the effect is similar
 # to doing multiple imputation
@@ -235,15 +251,19 @@ HHIncomes <- as.character(unique(nzes_full$HHIncome))
 
 save(WorkStatuses, HighestQuals, Religions, HHIncomes, file = "0097/dimensions.rda")
 
-rsconnect::deployApp("0097", appName = "individual-vote-nzes", account = "ellisp")
+# rsconnect::deployApp("0097", appName = "individual-vote-nzes", account = "ellisp")
 
 #==================unused - H2O experiments=================
-# Fire up h2o cluster
+# Code below here was not needed for building the Shiny app.
+# The neural network was a very good model but a little slow for the Shiny user
+# and I was also worried about complications when it came to installing on shinyapps.io.
+
+
+# Fire up h2o cluster and load data onto it:
 h2o.init(nthreads = -1, max_mem_size = "8G")
 nzes_test_h2o <- as.h2o(nzes_test)
 nzes_train_h2o <- as.h2o(nzes_train)
 nzes_full_h2o <- as.h2o(nzes_full)
-
 
 
 #------------------neural network / deep learning-------------------
@@ -270,6 +290,7 @@ mod_grid <- h2o.grid("deeplearning", x = x, y = "dpartyvote2",
 # 3      TanhWithDropout  100.0 [80, 80]            [0.5, 0.5]                 0.0 1.0E-4 1.0E-5   0.0         1.0E-8
 # 4 RectifierWithDropout  100.0 [20, 20]            [0.5, 0.5]                 0.0 1.0E-4    0.0 0.005         1.0E-7
 # 5 RectifierWithDropout  100.0 [40, 40]            [0.5, 0.5]                 0.0    0.0 1.0E-5 0.005         1.0E-7
+
 # model_ids            logloss
 # 1 Grid_DeepLearning_nzes_train_model_R_1494636618877_4_model_26   1.44116807364652
 # 2 Grid_DeepLearning_nzes_train_model_R_1494636618877_4_model_12 1.4511058590061174
