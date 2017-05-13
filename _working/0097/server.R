@@ -1,19 +1,19 @@
 library(shiny)
-library(h2o)
 library(ggvis)
 library(scales)
-h2o.init()
+library(ranger)
+library(dplyr)
+library(nnet)
 
-load("mod.rda")
-load("nzes_imp.rda")
+load("models.rda")
+load("nzes_skeleton.rda")
 
-nzes_h2o <- as.h2o(nzes_imp)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
    the_probs <- reactive({
       
-      x <- nzes_h2o[1, ]
+      x <- nzes_skeleton
       
       x$dage <- input$dage
       x$NotEuropean <- 1 - 1 * input$European
@@ -34,19 +34,32 @@ shinyServer(function(input, output) {
       x$Male <- 1 * input$Male
       
       
-      tmp <- as.vector(predict(mod, newdata = x))[-1]
-      tmp2 <- data.frame(
-         party = c("Did not vote",  "Green", "Labour", "NZ First", "National", "Other"),
-         prob = as.numeric(as.character(tmp))
-      )
-      return(tmp2)
+      tmp1 <- as.vector(predict(mod_rr, data = x))$predictions
+      tmp2 <- predict(mod_mn, newdata = x, type = "probs")
+      
+      tmp3 <- data.frame(
+         party = colnames(tmp1),
+         prob1 = as.numeric(tmp1),
+         prob2 = as.numeric(tmp2)
+      ) %>%
+         mutate(prob = (prob1 + prob2) / 2)
+      return(tmp3)
    })
+   
+   tool_func <- function(x){
+      paste0("<p>", x$party, " ", round(x[[4]] * 100), "%</p>")
+   }
    
    # for some reason the scale_ordinal doesn't work with shiny, only in interactive mode
    the_probs %>%
       ggvis(x = ~party, y = ~prob, fill = ~party) %>%
       layer_bars(opacity := 0.5) %>%
-      scale_ordinal('fill', range = c("lightgrey", "green", "red",  "blue", "black", "lightgrey")) %>%
+      add_tooltip(tool_func) %>%
+      scale_ordinal('fill', 
+                    range = c("lightgrey", "green", "red",  "blue", "black", "lightgrey")) %>%
+      hide_legend('fill') %>%
+      add_axis('x', title = "") %>%
+      add_axis('y', title = "Modelled probability of voting", title_offset = 50) %>%
       bind_shiny("distPlot")
 
 })

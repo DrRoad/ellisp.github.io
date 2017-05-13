@@ -1,9 +1,24 @@
+# Data prep for shiny app of modelled individual party vote in the
+# New Zealand general election.
+# Output is at https://ellisp.shinyapps.io/individual-vote-nzes/ 
+
+# Overall strategy is to create a cut down version of the NZ Election Study data,
+# fit a statistical model to it, and save it in a folder where a shiny app can access it
+
+#
+
 library(tidyverse)
 library(foreign)
 library(forcats)
+library(survey)
 library(mice)
 library(h2o)
+library(testthat)
+library(ranger)
+library(nnet)
 
+
+#==========data prep===============
 # Convert five category membership question (for trade unions, business
 # associations, etc) into Yes or No.
 membership <- function(x){
@@ -27,9 +42,6 @@ nzes_orig <- read.spss("NZES2014GeneralReleaseApril16.sav",
 
 
 #============rationalised version of feature creation===========
-# This is a single 100 line command to aggregate various answers into
-# simpler cateogrisations, because we don't have enough data to 
-# analyse the original granular detail.
 nzes <- nzes_orig %>%
    
    # party vote:
@@ -132,15 +144,197 @@ nzes <- nzes_orig %>%
              SuperviseAnyone,
              City,
              Male,
-             dage) # ignores dwtfin
+             dage,
+             dwtfin)
 
-x <- names(nzes)[-1]
 
-nzes_imp <- complete(mice(nzes, m = 1))
+#------reweight to match actual party vote----------
+# see http://www.elections.org.nz/news-media/new-zealand-2014-general-election-official-results
+actual_vote <- data_frame(
+   dpartyvote2 = c("National", "Labour", "Green", "NZ First", "Other", "Did not vote"),
+   freq = c(1131501, 604534, 257356, 208300, 
+            31850 + 16689 + 5286 + 95598 + 34095 + 10961 + 5113 + 1730 + 1096 + 872 + 639,
+   NA)
+)
 
-nzes_h2o <- as.h2o(nzes_imp)
+# calculate the did not vote, from the 77.9 percent turnout
+actual_vote[6, 2] <- (100 / 77.9 - 1) * sum(actual_vote[1:5, 2])
 
-mod <- h2o.deeplearning(x, "dpartyvote2", nzes_h2o)
+# check I did the turnout sums right:
+expect_equal(0.779 * sum(actual_vote[ ,2]), sum(actual_vote[1:5, 2]))
 
-save(mod, file = "0097/mod.rda")
-save(nzes_imp, file = "0097/nzes_imp.rda")
+reweight_ratios <- nzes %>%
+   group_by(dpartyvote2) %>%
+   summarise(survey = sum(dwtfin)) %>%
+   left_join(actual_vote, by = "dpartyvote2") %>%
+   mutate(ratio = freq / survey)
+
+nzes <- nzes %>%
+   left_join(reweight_ratios[, c("dpartyvote2", "ratio")]) %>%
+   ungroup() %>%
+   mutate(weight = dwtfin * ratio) %>%
+   mutate(weight = weight / mean(weight)) %>%
+   select(-dwtfin, -ratio)
+
+#============more pre-processing===============
+# identify which rows will be in test and training sets
+nzes$dataset <- sample(c("test", "train"), prob = c(0.2, 0.8), replace = TRUE, size =nrow(nzes))
+
+# expand out to 10 times the size, number of repetitions based on the survey weight
+# (note an alternative approach would be to use weights_column, but then we can't
+# do the multiple imputation thing)
+nzes_expanded <- nzes[rep(1:nrow(nzes), times = round(10 * nzes$weight)), ] %>%
+   select(-weight) %>%
+   mutate(dpartyvote2 = as.factor(dpartyvote2))
+
+# add some random noise.  Probably a more R-native way of doing this.
+n <- nrow(nzes_expanded)
+for(i in 1:n){
+   nzes_expanded[i, sample(2:18, 1)] <- NA
+}
+
+# split into test and training sets
+nzes_test <- filter(nzes_expanded, dataset == "test")
+nzes_train <- filter(nzes_expanded, dataset == "train")
+
+# impute the missing values back.  Note that this creates a single, complete
+# data set (for each of test and train), but because there are multiple copies
+# of each row as a result of the expansion by weight, the effect is similar
+# to doing multiple imputation
+nzes_test <- complete(mice(nzes_test, m = 1))
+nzes_train <- complete(mice(nzes_train, m = 1))
+nzes_full <- complete(mice(nzes_expanded, m = 1))
+
+x <- names(nzes_train)
+x <- x[!x %in% c("dpartyvote2", "dataset")]
+
+
+
+#=============ranger random forest==========
+form <- as.formula("dpartyvote2 ~ NotEuropean + Maori + HHIncome + OwnHouseOrFlat + 
+                    HHMemberTradeUnion + HHMemberProfAssoc + NZBorn + Religion + 
+                    Marital + HighestQual + IdentifyWorkingClass + WorkStatus + 
+                    Student + SuperviseAnyone + City + Male + dage")
+
+mod_rr <- ranger(form, data = nzes_full, probability = TRUE, importance = "impurity")
+
+mod_mn <- multinom(form, data = nzes_full)
+
+
+
+#============shiny prep=============
+nzes_skeleton <- nzes_full[1, ]
+save(nzes_skeleton, file = "0097/nzes_skeleton.rda")
+
+save(mod_rr, mod_mn, file = "0097/models.rda")
+
+WorkStatuses <- as.character(unique(nzes_full$WorkStatus))
+HighestQuals <- as.character(unique(nzes_full$HighestQual))
+Religions <- as.character(unique(nzes_full$Religion))
+HHIncomes <- as.character(unique(nzes_full$HHIncome))
+
+save(WorkStatuses, HighestQuals, Religions, HHIncomes, file = "0097/dimensions.rda")
+
+rsconnect::deployApp("0097", appName = "individual-vote-nzes", account = "ellisp")
+
+#==================unused - H2O experiments=================
+# Fire up h2o cluster
+h2o.init(nthreads = -1, max_mem_size = "8G")
+nzes_test_h2o <- as.h2o(nzes_test)
+nzes_train_h2o <- as.h2o(nzes_train)
+nzes_full_h2o <- as.h2o(nzes_full)
+
+
+
+#------------------neural network / deep learning-------------------
+mod_grid <- h2o.grid("deeplearning", x = x, y = "dpartyvote2",
+                     training_frame = nzes_train_h2o,
+                     validation_frame = nzes_test_h2o,
+                     search_criteria = list(strategy = "RandomDiscrete", max_models = 42),
+                     hyper_params = list(
+                        
+                        epochs = 100,
+                        hidden = list(c(20, 20), c(40, 40), c(80, 80), c(160, 160), c(320, 320)),      # default is c(200, 200)
+                        rate = c(0, 0.005, 0.01, 0.02),                                                # default is 0.005
+                        rate_annealing = c(1e-8, 1e-7, 1e-6),                                          # default is 1e-6
+                        activation = c("RectifierWithDropout", "TanhWithDropout", "MaxoutWithDropout"),
+                        hidden_dropout_ratios = list(c(0, 0), c(0.1, 0.1),  c(0.2, 0.2), c(0.5, 0.5)), # default is 0.5, 0.5
+                        input_dropout_ratio = c(0, 0.1),                                               # default is 0
+                        l1 = c(0, 1e-04, 1e-05),                                                       # default is 0
+                        l2 = c(0, 1e-04, 1e-05)                                                        # default is 0
+                     ))
+# Hyper-Parameter Search Summary: ordered by increasing logloss
+# activation epochs   hidden hidden_dropout_ratios input_dropout_ratio     l1     l2  rate rate_annealing
+# 1      TanhWithDropout  100.0 [40, 40]            [0.5, 0.5]                 0.0    0.0 1.0E-4  0.01         1.0E-6
+# 2 RectifierWithDropout  100.0 [40, 40]            [0.5, 0.5]                 0.1 1.0E-4 1.0E-5  0.02         1.0E-7
+# 3      TanhWithDropout  100.0 [80, 80]            [0.5, 0.5]                 0.0 1.0E-4 1.0E-5   0.0         1.0E-8
+# 4 RectifierWithDropout  100.0 [20, 20]            [0.5, 0.5]                 0.0 1.0E-4    0.0 0.005         1.0E-7
+# 5 RectifierWithDropout  100.0 [40, 40]            [0.5, 0.5]                 0.0    0.0 1.0E-5 0.005         1.0E-7
+# model_ids            logloss
+# 1 Grid_DeepLearning_nzes_train_model_R_1494636618877_4_model_26   1.44116807364652
+# 2 Grid_DeepLearning_nzes_train_model_R_1494636618877_4_model_12 1.4511058590061174
+# 3 Grid_DeepLearning_nzes_train_model_R_1494636618877_4_model_34 1.4522481658109039
+# 4 Grid_DeepLearning_nzes_train_model_R_1494636618877_4_model_40 1.4544414896356737
+# 5  Grid_DeepLearning_nzes_train_model_R_1494636618877_4_model_3  1.459363296904898
+
+# From the first grid it's clear the larger networks (hidden layers with more than 100 neruons)
+# aren't as good as the smaller. 40 or 80 seem the best.
+# Also, the higher hidden drop out ratio (0.5) is better.
+# MaxoutWithDropout wasn't in any of the top rating models, but both the other activation
+# methods were.  Nothing obvious to see with the input dropout ratio
+
+mod_grid2 <- h2o.grid("deeplearning", x = x, y = "dpartyvote2",
+                      training_frame = nzes_train_h2o,
+                      validation_frame = nzes_test_h2o,
+                      input_dropout_ratio = 0,
+                      activation = "TanhWithDropout",
+                      search_criteria = list(strategy = "RandomDiscrete", max_models = 42),
+                      hyper_params = list(
+                         
+                         epochs = c(20, 50, 100, 200),
+                         hidden = list(c(25, 25), c(40, 40), c(60, 60), c(80, 80)),
+                         rate = c(0, 0.005, 0.01, 0.02),                                                
+                         rate_annealing = c(1e-8, 1e-7, 1e-6),                                          
+                         hidden_dropout_ratios = list(c(0.3, 0.3),  c(0.5, 0.5), c(0.7, 0.7)), 
+                         l1 = c(0, 1e-04, 1e-05),                                                       
+                         l2 = c(0, 1e-04, 1e-05)                                                        
+                      ))
+
+# Full model with the best parameters:
+mod <- h2o.deeplearning(x, "dpartyvote2", 
+                        training_frame = nzes_full_h2o,
+                        input_dropout_ratio =0,
+                        activation = "TanhWithDropout",
+                        epochs = 1000,
+                        hidden = c(60, 60),
+                        adaptive_rate = FALSE,
+                        rate = 0.02,
+                        rate_annealing = 1e-8,
+                        hidden_dropout_ratios = c(0.7, 0.7),
+                        l1 = 1e-04,
+                        l2 = 1e-04
+)
+
+h2o.confusionMatrix(mod)
+
+#-----------------------------h2o random forest---------------------
+mod_grid3 <- h2o.grid("randomForest", x = x, y = "dpartyvote2",
+                      training_frame = nzes_train_h2o,
+                      validation_frame = nzes_test_h2o,
+                      hyper_params = list(
+                         ntrees = c(50, 100, 200),
+                         max_depth = c(5, 10, 20, 30)
+                      ))
+# depth of 5 clearly best, log loss of 1.52.  Note not as good as the 
+# deep learning best result of 1.44
+
+mod_grid4 <- h2o.grid("randomForest", x = x, y = "dpartyvote2",
+                      training_frame = nzes_train_h2o,
+                      validation_frame = nzes_test_h2o,
+                      ntrees = 200, 
+                      hyper_params = list(
+                         max_depth = c(3, 4, 5, 6, 7, 8)
+                      ))
+# depth of 3, 4 or 5 very similar
+
+h2o.shutdown()

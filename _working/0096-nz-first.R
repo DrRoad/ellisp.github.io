@@ -85,9 +85,6 @@ varlab <- cbind(attributes(nzes_orig)$variable.labels)
 
 # DT::datatable(varlab)
 
-View(table(nzes_orig$dpartyvote, nzes_orig$dvpartyvote, useNA = "always"))
-table(nzes_orig$dpartyvote)
-nrow(nzes_orig)
 # note - party vote v verified party vote
 
 
@@ -504,7 +501,8 @@ for(i in 1:length(responses)){
                       title = paste(gsub("PartyVote", "Party vote for ", responses[i]),
                                     "compared to rest of population"),
                       colour = colours[i],
-                      type = "pool")
+                      type = "pool",
+                      party = gsub("PartyVote", "", responses[i]))
 }
 
 svg("../img/0096-all-parties.svg", 15, 14)
