@@ -1,0 +1,268 @@
+
+# original motivation came from
+# https://www.nytimes.com/2017/05/26/world/europe/nato-trump-spending.html?_r=0
+# note that the SIPRI figures don't match those of the NY Times
+
+library(cshapes)
+library(tidyverse)
+library(forcats)
+library(scales)
+library(openxlsx)
+library(directlabels)
+library(ggthemes)
+library(RColorBrewer)
+library(countrycode)
+library(maps)
+library(viridis)
+library(leaflet)
+library(rworldmap)
+
+# The WDI has fallen behind its source SIPRI https://www.sipri.org/databases/milex
+# At time of writing WDI only goes up to 2015, but SIPR has 2016 data.
+
+tf <- tempfile()
+
+download.file("https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1949-2016.xlsx",
+              destfile = tf, mode = "wb")
+
+sipri <- read.xlsx(tf, sheet = "Share of GDP", startRow = 6) %>%
+   gather(Year, Value, -Country, -Notes) %>%
+   mutate(Value = as.numeric(Value),
+          Year = as.numeric(Year)) %>%
+   filter(!is.na(Value))
+
+svg("../img/0099-all-countries.svg", 8, 5)
+sipri %>%
+   ggplot(aes(x = Year, y = Value, colour = Country)) +
+   geom_line() +
+   theme(legend.position = "none") +
+   scale_y_continuous("Military expenditure as a percentage of GDP", label = percent) +
+   ggtitle("Countries' and regions' expenditure on military as a percentage of GDP") +
+   labs(caption = "Source: Stockholm International Peace Research Institute", x = "")
+dev.off()
+
+sipri %>%
+   filter(Value > 0.25) %>%
+   select(-Notes) %>%
+   arrange(Country, Year)
+   
+total_spend <- sipri %>%
+   filter(!is.na(Value)) %>%
+   group_by(Country) %>%
+   summarise(Mean = mean(Value),
+             TrMean = mean(Value, tr = 0.2),
+             Max = max(Value)) %>%
+   arrange(desc(Mean))
+   
+#==========Five eyes countries===================
+wid <- 0.01 # width of annotation bars
+wars <- data_frame(
+   name =          c("Malaysia",  "Korea",     "Aden",        "Vietnam",   "Northern Ireland", "Falklands",  "Gulf",      "Afghanistan",  "Iraq"),
+   start = as.Date(c("15/6/1948", "25/6/1950", "10/12/1963",  "1/11/1955", "1/1/1968",         "2/4/1982" ,  "2/8/1990",  "7/10/2001",   "20/3/2003"), 
+                   format = "%d/%m/%Y"),
+   end =   as.Date(c("12/7/1960", "27/7/1953",  "30/11/1967", "30/4/1975", "30/6/1998",        "14/6/1982", "28/2/1991","28/12/2014",   "18/12/2011"),
+                   format = "%d/%m/%Y"),
+   lead =        c("UK",         "USA",      "UK",            "USA",        "UK",              "UK", "USA",         "USA",         "USA")
+) %>%
+   mutate(name_seq = n():1,
+          ystart = wid * name_seq + 0.12, 
+          yend = ystart +wid )
+
+
+countries <- c("Australia", "New Zealand", "USA", "UK", "Canada")
+palette <- brewer.pal(5, "Set1")
+names(palette) <- countries
+   
+p <- sipri %>%
+   filter(Country %in% countries) %>%
+   mutate(YearDate = as.Date(paste0("30/6/", Year), format = "%d/%m/%Y")) %>%
+   ggplot() +
+   geom_rect(data = wars, aes(xmin = start, xmax = end, ymin = ystart, ymax = yend, fill = lead),
+             alpha = 0.2) +
+   geom_text(data = wars, aes(x = end, y = (yend + ystart) / 2, label = name),
+             colour = "grey50", hjust = 1, nudge_x = -200, size = 3) +
+   geom_line(aes(x = YearDate, y = Value, colour = Country)) +
+   scale_y_continuous("Military expenditure as a percentage of GDP", label = percent,
+                      breaks = c(0, 5, 10, 15) / 100) +
+   ggtitle("Selected countries' expenditure on military as a percentage of GDP",
+           "'Five eyes' countries only; periods also shown for conflicts in which they had material deployments") +
+   labs(x = "",
+        caption = "Source: Stockholm International Peace Research Institute") +
+   scale_colour_manual(values = palette) +
+   scale_fill_manual(values = palette, guide = "none") +
+   theme_tufte(base_family = "myfont") +
+   theme(plot.caption = element_text(colour = "grey50")) + 
+   annotate("text", x = as.Date("1970/6/30"), y =0.145, hjust = 0.5, 
+            colour = "grey50", size = 3,
+            label = "Not shown - Grenada, Panama, Balkans,\nLibya, Lebanon, Haiti and numerous smaller...")
+
+svg("../img/0099-fiveeyes.svg", 8, 6)
+direct.label(p)
+dev.off()
+
+#============Biggest spending==============
+countries_big <- total_spend[1:10, ]$Country
+
+p2 <- sipri %>%
+   filter(Country %in% countries_big) %>%
+   ggplot(aes(x = Year, y = Value, colour = Country)) +
+   geom_line() +
+   #theme(legend.position = "none") +
+   scale_y_continuous("Military expenditure as a percentage of GDP", label = percent) +
+   ggtitle("Selected countries' expenditure on military as a percentage of GDP", 
+           "Ten biggest spending countries only") +
+   labs(caption = "Source: Stockholm International Peace Research Institute",
+        x= "", colour = "")
+
+svg("../img/0099-biggest-spenders.svg", 8, 6)
+print(p2)
+dev.off()
+
+#===============map========================
+
+
+sipri <- sipri %>%
+   mutate(iso3c = countrycode(Country, "country.name", destination = "iso3c")) %>%
+   # two manual concordances of country code:
+   mutate(iso3c = ifelse(Country == "Kosovo", "KOS", iso3c))
+
+# for some reason the tidyverse doesn't work for Central African Republic! 
+# so we fix it old school:
+sipri[sipri$Country == "Central African Rep.", "iso3c"] <- "CAF"
+
+world <- map_data("world") %>%
+   mutate(iso3c = countrycode(region, "country.name", destination = "iso3c"))
+
+the_data <- sipri %>%
+   group_by(Country) %>%
+   filter(Year == max(Year))
+table(the_data$Year)
+
+# using the help at http://ggplot2.tidyverse.org/reference/coord_map.html
+
+world2 <- world %>%
+   left_join(the_data, by = "iso3c")
+
+worldmap <- ggplot(world2, aes(x = long, y = lat, group = group, fill = Value)) +
+   geom_polygon(colour = "grey75") +
+   scale_y_continuous("", breaks = (-2:2) * 30) +
+   scale_x_continuous("", breaks = (-4:4) * 45) +
+   scale_fill_viridis("", label = percent, option = "inferno", direction = -1) +
+   theme_minimal(base_family = "myfont") +
+   theme(legend.position = "right",
+         axis.text = element_blank()) +
+   ggtitle("Military expenditure as a percentage of GDP",
+           "Most recent data shown for each country; mostly this is 2016") +
+   labs(caption = "Source: Stockholm International Peace Research Institute")
+
+
+#-----------rotating globe---------------
+setwd("C:/temp")
+showtext.auto(enable = TRUE)
+# set screen resolution
+showtext.opts(dpi = 72)
+
+# latitudes will go from 30 north to 30 south and back again:
+lats <- rep(c(30:(-30), (-29):29), 3)
+# longitudes will start at 50 and go around backwards:
+lons <- c(50:(-309))
+
+for(i in 1:length(lons)){
+   lat <- lats[i]
+   lon <- lons[i]
+   png(paste0(1000 + i, ".png"), 600, 550, res = 100)
+      print(worldmap + coord_map("ortho", orientation = c(lat, lon, 0)) )  
+   dev.off()
+}
+
+system('magick -loop 0 -delay 7 *.png "military-gdp.gif"')
+
+
+#-------------single map, nice projection-------------------
+# Lots of the projections in coord_map have problems with drawing
+# polygons.  ok are: globular, harrison 
+setwd("D:/Peter/Documents/blog/ellisp.github.io/_working")
+svg("../img/0099-globular.svg", 8, 5)
+worldmap +   coord_map("globular")
+dev.off()
+
+svg("../img/0099-harrison.svg", 8, 4)
+worldmap +   coord_map("harrison", dist = 1, angle = 30, ylim = c(-75, 85))
+dev.off()
+
+#-------------------------leaflet------------------
+shape <- countriesCoarse
+
+pal <- colorNumeric(
+   palette = inferno(10, direction = -1),
+   domain = the_data$Value)
+
+data2 <- shape@data %>%
+   left_join(the_data, by = c("ISO_A3" = "iso3c")) %>%
+   mutate(tooltip = paste0(ADMIN, " ", Year, ", ", round(Value * 100, 1), "%"))
+
+# EPSG4326 means latitude and longitude
+coarse_crs <- leafletCRS(crsClass = "L.CRS.EPSG4326", proj4def = proj4string(countriesCoarse))
+
+shape %>%
+   leaflet(options = leafletOptions(crs = coarse_crs))  %>%
+   addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = 1, 
+               color = ~pal(data2$Value),
+               label = data2$tooltip) 
+
+
+
+
+#---------unused------------
+# this works fine:
+peters_proj4 <- "+proj=cea +lon_0=0 +x_0=0 +y_0=0 +lat_ts=45 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+shape2 <- spTransform(shape, CRS = CRS(peters_proj4))
+plot(shape2)
+
+# but this doesn't draw anything:
+peters_crs = leafletCRS(crsClass = "L.CRS.EPSG4326",
+                        proj4def = peters_proj4)
+
+shape2 %>%
+   leaflet(options = leafletOptions(crs = peters_crs))  %>%
+   addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = 1, color = ~pal(data2$Value))
+
+
+
+
+
+
+#================animated map over time===============
+showtext.opts(dpi = 72)
+setwd("C:/temp1")
+years <- unique(sipri$Year)
+
+for(i in years){
+
+   the_data <- sipri %>%
+      group_by(Country) %>%
+      filter(Year == i)
+   
+   world2 <- world %>%
+      left_join(the_data, by = "iso3c")
+   
+   worldmap <- ggplot(world2, aes(x = long, y = lat, group = group, fill = Value)) +
+      geom_polygon(colour = "grey75") +
+      scale_y_continuous("", breaks = (-2:2) * 30) +
+      scale_x_continuous("", breaks = (-4:4) * 45) +
+      scale_fill_viridis("", label = percent, option = "inferno", direction = -1, 
+                         limits = range(sipri$Value), trans = "sqrt",
+                         breaks = c(1, 10, 40, 100) / 100) +
+      theme_minimal(base_family = "myfont") +
+      theme(legend.position = "right",
+            axis.text = element_blank()) +
+      ggtitle(paste("Military expenditure as a percentage of GDP -", i)) +
+      labs(caption = "Source: Stockholm International Peace Research Institute")
+   
+   png(paste0(i, ".png"), 12 * 72, 6 * 72)
+      print(worldmap +   coord_map("harrison", dist = 1, angle = 30, ylim = c(-75, 85)))
+   dev.off()
+}
+
+system('magick -loop 0 -delay 40 *.png "military-gdp-time.gif"')
+
