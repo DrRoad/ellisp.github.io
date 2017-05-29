@@ -16,6 +16,8 @@ library(maps)
 library(viridis)
 library(leaflet)
 library(rworldmap)
+library(sf)
+library(maptools)
 
 # The WDI has fallen behind its source SIPRI https://www.sipri.org/databases/milex
 # At time of writing WDI only goes up to 2015, but SIPR has 2016 data.
@@ -211,25 +213,91 @@ shape %>%
                label = data2$tooltip) 
 
 
+#------------sf approach------------------
+# this solution came from the demo in the sf package, tweeted about at
+# https://twitter.com/edzerpebesma/status/835249468874321920
 
 
-#---------unused------------
-# this works fine:
-peters_proj4 <- "+proj=cea +lon_0=0 +x_0=0 +y_0=0 +lat_ts=45 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
-shape2 <- spTransform(shape, CRS = CRS(peters_proj4))
-plot(shape2)
+data(wrld_simpl)
 
-# but this doesn't draw anything:
-peters_crs = leafletCRS(crsClass = "L.CRS.EPSG4326",
-                        proj4def = peters_proj4)
-
-shape2 %>%
-   leaflet(options = leafletOptions(crs = peters_crs))  %>%
-   addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = 1, color = ~pal(data2$Value))
+w <- st_as_sf(wrld_simpl) %>%
+   left_join(the_data, by = c("ISO3" = "iso3c")) %>%
+   mutate(fill = pal(Value))
 
 
+circ <- function(l = c(-180:180), lon0 = 0, lat0 = 30) {
+      deg2rad = pi / 180
+      lat = atan(-cos((l - lon0) * deg2rad)/tan(lat0 * deg2rad)) / deg2rad
+      xy = if (lat0 == 0) {
+         l1 = lon0 - 90
+         l2 = lon0 + 90
+         rbind(c(l1,-90), c(l2,-90), c(l2,0), c(l2,90), c(l1,90), c(l1,0), c(l1,-90))
+         } else if (lat0 > 0) {
+            xy = cbind(lon = l, lat = lat)
+            rbind(c(-180,90),xy,c(180,90),c(-180,90))
+            } else {
+               xy = cbind(lon = l, lat = lat)[length(l):1,]
+               rbind(c(180,-90), xy, c(-180,-90),c(180,-90))
+               }
+      st_sfc(st_polygon(list(xy)), crs = st_crs(4326))
+      }
+
+m <- st_make_grid()
+
+m <- st_segmentize(m, 4e5)
+
+# latitudes will go from 30 north to 30 south and back again:
+lats <- rep(c(30:(-30), (-29):29), 3)
+# longitudes will start at 50 and go around backwards:
+lons <- c(180:(-179))
+
+dir.create("C:/temp2")
+setwd("C:/temp2")
 
 
+
+for(i in 1:length(lons)){
+   png(paste0(1000 + i, ".png"), 600, 550, res = 100)
+   par(mar <- rep(0, 4), bg = "black")
+   par(family = "myfont")
+   
+   lat <- lats[i]
+   lon <- lons[i]
+   
+   p4s <- paste0("+proj=ortho +lat_0=", lat, " +lon_0=", lon)
+   
+   # draw the pale blue globe in space
+   blank_globe <- st_transform(m, st_crs(p4s), check = TRUE)
+   plot(blank_globe, col = '#e6f2ff', border = 'grey99')
+   
+   # create a clipped version of the great circle??
+   # I don't really understand what is happening, but it seems to work.
+   crc <- circ(lat0 = lat, lon0 = lon)
+   w0 <- suppressWarnings(st_intersection(w, crc))
+   
+   # cast and re-project the map itself
+   w0 <- st_cast(w0, "MULTIPOLYGON")
+   w0 <- st_transform(w0["fill"], st_crs(p4s), check = TRUE) 
+   
+   # draw the map
+   plot(w0, col = w0$fill, add = TRUE, border = "grey75")
+   
+   # title and legend
+   title("Military expenditure as a percentage of GDP\nNearest year to 2016", 
+         col.main = "white", font.main = 1, adj = 0)
+   title(sub = "Source: Stockholm International Peace Research Institute", 
+         col.sub = "grey50", adj = 1)
+   
+   leg_nums <- seq(from = 4, to = 20, length.out = 6) / 100
+   legend("bottomright", legend = paste0(round(leg_nums * 100), "%"),
+          pch = 15, adj = 0.1,
+          col = pal(leg_nums), text.col = pal(leg_nums),
+          bg = "grey80")
+
+   dev.off()
+}
+   
+system('magick -loop 0 -delay 7 *.png "military-gdp-sf.gif"')
 
 
 #================animated map over time===============
@@ -239,12 +307,12 @@ years <- unique(sipri$Year)
 
 for(i in years){
 
-   the_data <- sipri %>%
+   this_year_data <- sipri %>%
       group_by(Country) %>%
       filter(Year == i)
    
    world2 <- world %>%
-      left_join(the_data, by = "iso3c")
+      left_join(this_year_data, by = "iso3c")
    
    worldmap <- ggplot(world2, aes(x = long, y = lat, group = group, fill = Value)) +
       geom_polygon(colour = "grey75") +
