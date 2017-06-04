@@ -3,6 +3,7 @@
 # https://www.nytimes.com/2017/05/26/world/europe/nato-trump-spending.html?_r=0
 # note that the SIPRI figures don't match those of the NY Times
 
+# Load in all the packages we need for the full post
 library(cshapes)
 library(tidyverse)
 library(forcats)
@@ -47,7 +48,8 @@ sipri %>%
    filter(Value > 0.25) %>%
    select(-Notes) %>%
    arrange(Country, Year)
-   
+
+#============Biggest spending==============
 total_spend <- sipri %>%
    filter(!is.na(Value)) %>%
    group_by(Country) %>%
@@ -55,6 +57,24 @@ total_spend <- sipri %>%
              TrMean = mean(Value, tr = 0.2),
              Max = max(Value)) %>%
    arrange(desc(Mean))
+
+countries_big <- total_spend[1:10, ]$Country
+
+p2 <- sipri %>%
+   filter(Country %in% countries_big) %>%
+   ggplot(aes(x = Year, y = Value, colour = Country)) +
+   geom_line() +
+   #theme(legend.position = "none") +
+   scale_y_continuous("Military expenditure as a percentage of GDP", label = percent) +
+   ggtitle("Selected countries' expenditure on military as a percentage of GDP", 
+           "Ten biggest spending countries only") +
+   labs(caption = "Source: Stockholm International Peace Research Institute",
+        x= "", colour = "")
+
+svg("../img/0099-biggest-spenders.svg", 8, 6)
+print(p2)
+dev.off()
+
    
 #==========Five eyes countries===================
 wid <- 0.01 # width of annotation bars
@@ -102,27 +122,8 @@ svg("../img/0099-fiveeyes.svg", 8, 6)
 direct.label(p)
 dev.off()
 
-#============Biggest spending==============
-countries_big <- total_spend[1:10, ]$Country
 
-p2 <- sipri %>%
-   filter(Country %in% countries_big) %>%
-   ggplot(aes(x = Year, y = Value, colour = Country)) +
-   geom_line() +
-   #theme(legend.position = "none") +
-   scale_y_continuous("Military expenditure as a percentage of GDP", label = percent) +
-   ggtitle("Selected countries' expenditure on military as a percentage of GDP", 
-           "Ten biggest spending countries only") +
-   labs(caption = "Source: Stockholm International Peace Research Institute",
-        x= "", colour = "")
-
-svg("../img/0099-biggest-spenders.svg", 8, 6)
-print(p2)
-dev.off()
-
-#===============map========================
-
-
+#===============map prep========================
 sipri <- sipri %>%
    mutate(iso3c = countrycode(Country, "country.name", destination = "iso3c")) %>%
    # two manual concordances of country code:
@@ -135,16 +136,17 @@ sipri[sipri$Country == "Central African Rep.", "iso3c"] <- "CAF"
 world <- map_data("world") %>%
    mutate(iso3c = countrycode(region, "country.name", destination = "iso3c"))
 
+# data on military for just the latest year for each country
 the_data <- sipri %>%
    group_by(Country) %>%
    filter(Year == max(Year))
-table(the_data$Year)
 
 # using the help at http://ggplot2.tidyverse.org/reference/coord_map.html
 
 world2 <- world %>%
    left_join(the_data, by = "iso3c")
 
+# define a ggplot mapping object
 worldmap <- ggplot(world2, aes(x = long, y = lat, group = group, fill = Value)) +
    geom_polygon(colour = "grey75") +
    scale_y_continuous("", breaks = (-2:2) * 30) +
@@ -158,7 +160,7 @@ worldmap <- ggplot(world2, aes(x = long, y = lat, group = group, fill = Value)) 
    labs(caption = "Source: Stockholm International Peace Research Institute")
 
 
-#-----------rotating globe---------------
+#-----------rotating globe with ggplot2---------------
 setwd("C:/temp")
 showtext.auto(enable = TRUE)
 # set screen resolution
@@ -188,9 +190,10 @@ svg("../img/0099-globular.svg", 8, 5)
 worldmap +   coord_map("globular")
 dev.off()
 
-svg("../img/0099-harrison.svg", 8, 4)
-worldmap +   coord_map("harrison", dist = 1, angle = 30, ylim = c(-75, 85))
+svg("../img/0099-ortho.svg", 8, 4)
+worldmap +   coord_map("orthographic", orientation = c(20, 20, 0))
 dev.off()
+
 
 #-------------------------leaflet------------------
 shape <- countriesCoarse
@@ -216,35 +219,39 @@ shape %>%
 #------------sf approach------------------
 # this solution came from the demo in the sf package, tweeted about at
 # https://twitter.com/edzerpebesma/status/835249468874321920
-
-
-data(wrld_simpl)
-
-w <- st_as_sf(wrld_simpl) %>%
-   left_join(the_data, by = c("ISO3" = "iso3c")) %>%
-   mutate(fill = pal(Value))
-
-
 circ <- function(l = c(-180:180), lon0 = 0, lat0 = 30) {
-      deg2rad = pi / 180
-      lat = atan(-cos((l - lon0) * deg2rad)/tan(lat0 * deg2rad)) / deg2rad
-      xy = if (lat0 == 0) {
-         l1 = lon0 - 90
-         l2 = lon0 + 90
-         rbind(c(l1,-90), c(l2,-90), c(l2,0), c(l2,90), c(l1,90), c(l1,0), c(l1,-90))
-         } else if (lat0 > 0) {
-            xy = cbind(lon = l, lat = lat)
-            rbind(c(-180,90),xy,c(180,90),c(-180,90))
-            } else {
-               xy = cbind(lon = l, lat = lat)[length(l):1,]
-               rbind(c(180,-90), xy, c(-180,-90),c(180,-90))
-               }
-      st_sfc(st_polygon(list(xy)), crs = st_crs(4326))
-      }
+   deg2rad = pi / 180
+   lat = atan(-cos((l - lon0) * deg2rad)/tan(lat0 * deg2rad)) / deg2rad
+   xy = if (lat0 == 0) {
+      l1 = lon0 - 90
+      l2 = lon0 + 90
+      rbind(c(l1,-90), c(l2,-90), c(l2,0), c(l2,90), c(l1,90), c(l1,0), c(l1,-90))
+   } else if (lat0 > 0) {
+      xy = cbind(lon = l, lat = lat)
+      rbind(c(-180,90),xy,c(180,90),c(-180,90))
+   } else {
+      xy = cbind(lon = l, lat = lat)[length(l):1,]
+      rbind(c(180,-90), xy, c(-180,-90),c(180,-90))
+   }
+   st_sfc(st_polygon(list(xy)), crs = st_crs(4326))
+}
 
 m <- st_make_grid()
 
 m <- st_segmentize(m, 4e5)
+
+
+data(wrld_simpl)
+
+w1 <- st_as_sf(countriesLow) %>%
+   left_join(the_data, by = c("ISO3" = "iso3c")) %>%
+   mutate(fill = pal(Value))
+
+w2 <- st_as_sf(wrld_simpl) %>%
+   left_join(the_data, by = c("ISO3" = "iso3c")) %>%
+   mutate(fill = pal(Value))
+# misses western sahara
+
 
 # latitudes will go from 30 north to 30 south and back again:
 lats <- rep(c(30:(-30), (-29):29), 3)
@@ -255,7 +262,8 @@ dir.create("C:/temp2")
 setwd("C:/temp2")
 
 
-
+# Frame 234 goes missing if using wrld_simpl
+# Frame 269 goes missing if using countriesLow or wrld_simpl
 for(i in 1:length(lons)){
    png(paste0(1000 + i, ".png"), 600, 550, res = 100)
    par(mar <- rep(0, 4), bg = "black")
@@ -273,14 +281,18 @@ for(i in 1:length(lons)){
    # create a clipped version of the great circle??
    # I don't really understand what is happening, but it seems to work.
    crc <- circ(lat0 = lat, lon0 = lon)
-   w0 <- suppressWarnings(st_intersection(w, crc))
+   w10 <- suppressWarnings(st_intersection(w1, crc))
+   w20 <- suppressWarnings(st_intersection(w2, crc))
    
    # cast and re-project the map itself
-   w0 <- st_cast(w0, "MULTIPOLYGON")
-   w0 <- st_transform(w0["fill"], st_crs(p4s), check = TRUE) 
+   w10 <- st_cast(w10, "MULTIPOLYGON")
+   w10 <- st_transform(w10["fill"], st_crs(p4s), check = TRUE) 
+   w20 <- st_cast(w20, "MULTIPOLYGON")
+   w20 <- st_transform(w20["fill"], st_crs(p4s), check = TRUE) 
    
    # draw the map
-   plot(w0, col = w0$fill, add = TRUE, border = "grey75")
+   plot(w10, col = w10$fill, add = TRUE, border = NA)
+   plot(w20, col = w20$fill, add = TRUE, border = "grey75")
    
    # title and legend
    title("Military expenditure as a percentage of GDP\nNearest year to 2016", 
@@ -297,7 +309,7 @@ for(i in 1:length(lons)){
    dev.off()
 }
    
-system('magick -loop 0 -delay 7 *.png "military-gdp-sf.gif"')
+system('magick -loop 0 -delay 7 *.png "0099-military-gdp.gif"')
 
 
 #================animated map over time===============
@@ -332,5 +344,8 @@ for(i in years){
    dev.off()
 }
 
-system('magick -loop 0 -delay 40 *.png "military-gdp-time.gif"')
+system('magick -loop 0 -delay 40 *.png "0099-military-gdp-time.gif"')
 
+
+
+convert_pngs("0099")
