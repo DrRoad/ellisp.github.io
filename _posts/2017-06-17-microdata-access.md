@@ -6,25 +6,31 @@ tag:
    - CodingStyle
    - Reproducibility
    - WorkRelated
-description: Excited that New Zealand's Government Statistician is promoting reproducibility, and open access to code, tabular outputs and research products from research with confidentialised microdata.
+description: Excited that New Zealand's Government Statistician is promoting reproducibility and open access to code, tabular outputs and research products from research with confidentialised microdata.
 image: /img/data-in-idi-oct-16.png
 socialimage: http://ellisp.github.io/img/data-in-idi-oct-16.png
 category: R
 ---
 
+### The Integrated Data Infrastructure (IDI) is an amazing research tool
+
 One of New Zealand's most important data assets is the [integrated data infrastructure](http://www.stats.govt.nz/browse_for_stats/snapshots-of-nz/integrated-data-infrastructure.aspx):
 
 > "The Integrated Data Infrastructure (IDI) is a large research database containing microdata about people and households. Data is from a range of government agencies, Statistics NZ surveys including the 2013 Census, and non-government organisations. The IDI holds over 166 billion facts, taking up 1.22 terabytes of space – and is continually growing. Researchers use the IDI to answer complex questions to improve outcomes for New Zealanders."
 
-*Quote from [Stats NZ*](http://www.stats.govt.nz/browse_for_stats/snapshots-of-nz/integrated-data-infrastructure.aspx)
+*Quote from [Stats NZ](http://www.stats.govt.nz/browse_for_stats/snapshots-of-nz/integrated-data-infrastructure.aspx)*
 
 The data already linked to the IDI "spine" is impressive:
 
 [<img src='/img/data-in-idi-oct-16.png' width='100%'>](http://www.stats.govt.nz/browse_for_stats/snapshots-of-nz/integrated-data-infrastructure/idi-data.aspx)
 
-The IDI can be accessed only from a small number of very secure datalabs with frosted windows, heavy duty secure doors.  We have one of these facilities at my workplace, the Social Investment Unit (to become the Social Investment *Agency* from 1 July 2017). *Note/reminder: as always, I am writing this blog in my own capacity, not necessarily representing the views of my employer*.  
+### Security and access is closely controlled
 
-User credentials and permissions are closely guarded by Stats NZ and need to be linked to clearly defined public-good (ie non-commercial) research projects.  All output is checked by Stats NZ against strict rules for confidentialisation (eg random rounding; cell suppression in specified situations; no individual values even in scatter charts; etc) before it can be taken out of the datalab and shown to anyone.  All this is quite right - even though the IDI does not contain names and addresses for individuals (they are stripped out after matching, before analysts like me get to use the data) and there are strict rules against trying to reverse the confidentialisation, it does contain very sensitive data and must be closely protected to ensure continued social permission for this amazing research tool.
+The IDI can be accessed only from a small number of very secure datalabs with frosted windows and heavy duty secure doors.  We have one of these facilities at my workplace, the Social Investment Unit (to become the Social Investment *Agency* from 1 July 2017). *Note/reminder: as always, I am writing this blog in my own capacity, not representing the views of my employer*.  
+
+User credentials and permissions are closely guarded by Stats NZ and need to be linked to clearly defined public-good (ie non-commercial) [research projects](http://www.stats.govt.nz/browse_for_stats/snapshots-of-nz/integrated-data-infrastructure/researchers-using-idi.aspx).  All output is checked by Stats NZ against [strict rules for confidentialisation](http://www.stats.govt.nz/tools_and_services/microdata-access/data-lab/microdata-output-guide.aspx) (eg random rounding; cell suppression in specified situations; no individual values even in scatter charts; etc) before it can be taken out of the datalab and shown to anyone.  All this is quite right - even though the IDI does not contain names and addresses for individuals (they are stripped out after matching, before analysts get to use the data) and there are strict rules against trying to reverse the confidentialisation, it does contain very sensitive data and must be closely protected to ensure continued social permission for this amazing research tool.
+
+### More can be done to build capability, including by sharing code
 
 However, while the security restrictions are necessary and acceptable, other limitations on its use can be overcome - and Stats NZ and others are working to do so.  The biggest such limitation is *capability* - skills and knowledge to use the data well. 
 
@@ -34,7 +40,9 @@ A typical workflow includes a data grooming stage of hundreds of lines of SQL co
 
 We [publish that and other code with a GPL-3 open source license on GitHub](https://github.com/nz-social-investment-unit/social_investment_analytical_layer) and have plans for more.  Although the target audience of analysts with access to the IDI is small, documenting and tidying code to publication standard and sharing it is important to help that group of people grow in size.  Code sharing until recently has been ad hoc and very much depending on "who you know", although there is a Wiki in the IDI environment where key snippets of data grooming code is shared.  We see the act of publishing on GitHub as taking this to the next step - amongst other things it really forces us to document and debug our code very thoroughly!
 
-Given the IDI is an expensive taxpayer-created asset, my personal view is that all code and output should be public!  So I was very excited a few weeks back when Liz MacPherson, the Government Statistician (a statutory position responsible for New Zealand's official statistics system, and also the Chief Executive of Stats NZ) sent out an email to researchers "encouraging active sharing for microdata access projects" including the IDI.
+### Stats NZ is showing leadership on open data / open science
+
+Given the IDI is an expensive taxpayer-created asset, my personal view is that all code and output should be public.  So I was very excited a few weeks back when Liz MacPherson, the Government Statistician (a statutory position responsible for New Zealand's official statistics system, and also the Chief Executive of Stats NZ) sent out an email to researchers "encouraging active sharing for microdata access projects" including the IDI.
 
 I obtained Liz's permission to reproduce the full text of her email of 29 May 2017:
 
@@ -76,4 +84,4 @@ There are many benefits to sharing: helping to build communities of interest whe
 
 This is great news, and a big step in the right direction.  It really is impressive for the Government Statistician to be promoting reproducibility and open access to code, outputs and research products.  I look forward to seeing more microdata analytical code sharing, and continued mutual support for raising standards and sharing experience.
 
-Now to get version control software into the datalab environment please! (and yes, there is a Stats NZ project in flight to fix this critical gap too).  My views on the critical importance of version control are set out in [this earlier post](http://127.0.0.1:4000/blog/2016/09/16/version-control).
+Now to get version control software into the datalab environment please! (and yes, there is a Stats NZ project in flight to fix this critical gap too).  My views on the critical importance of version control are set out in [this earlier post](/blog/2016/09/16/version-control)...
