@@ -1,3 +1,5 @@
+// oz-polls-3.stan
+
 data {
   int<lower=1> n_days;            // number of days
   real mu_start;                  // value at starting election
@@ -41,8 +43,7 @@ model {
   // https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
   // recommends not using a uniform, but constraining sigma to be positive
   // and using an open ended prior instead.  So:
-  sigma ~ normal(0.5, 0.5);              // prior for innovation sd.  Max is *sd* of 1% change per day.
-  // mu ~ normal(40, 5);                // prior for ALP vote
+  sigma ~ normal(0.5, 0.5);              // prior for innovation sd.  
   
   for (i in 2:n_days) 
       mu[i] ~ normal(mu[i - 1], sigma);
@@ -52,7 +53,7 @@ model {
   mu[n_days] ~ normal(mu_finish, 0.01);
   
   // 2. Polls
-  d ~ normal(0, 7.5);
+  d ~ normal(0, 7.5); // ie a fairly loose prior for house effects
   
   for(t in 1:y1_n)
       y1_values[t] ~ normal(mu[y1_days[t]] + d[1], y1_se[t]);
