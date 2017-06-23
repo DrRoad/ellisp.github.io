@@ -10,7 +10,7 @@ socialimage: /img/gam-vote-predictions.png
 
 All dates and times are New Zealand time.
 
-- *17 June 2017* Add an extra poll. Probability of National-led coalition continues to nudge up, now reaching 34%.
+- *17 June 2017* Add an extra poll. Probability of National or National-led coalition continues to nudge up, now reaching 34%.
 - *7 June 2017* Add an extra poll.  Makes National and National-led coalition slightly more favourable than previously, but not really a material change.
 - *28 May 2017* Add an extra poll.  Makes no material change to any of the predictions. 
 - *30 April 2017* Another change to the estimation of house effects (bias by polling firm - party combination).  I've now switched over to a Bayesian approach with an informative prior, which has the effect of shrinking these estimated biases towards zero compared to the previous method, which just took the average bias of the past 2-4 elections.  This change means the Greens' chances go up a bit and New Zealand First down a bit compared to previous forecasts, and the substantive overall outcome impact is that a National-led coalition ends up with a bit more predicted chance of winning than before.  I also changed the lead graphic in the main summary to make it more compatible with the "build your own coalition" web tool.
