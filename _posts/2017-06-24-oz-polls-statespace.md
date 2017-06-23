@@ -109,7 +109,7 @@ model {
 }
 {% endhighlight %}
 
-And here's the R code that calls that Stan program and draws the resulting summary graphic.  Stan works by compiling a program in C++ that is based on the statistical model specified in the `*.stan` file.  Then the program in C++ zooms around the parameter space, moving slower in the combinations of parameters that seem more likely given the data and the specified prior distributions.  It can use multiple processors on your machine and works super fast given the complexity of what it's doing.
+And here's the R code that calls that Stan program and draws the resulting summary graphic.  Stan works by compiling a program in C++ that is based on the statistical model specified in the `*.stan` file.  Then the C++ program zooms around the high-dimensional parameter space, moving slower around the combinations of parameters that seem more likely given the data and the specified prior distributions.  It can use multiple processors on your machine and works super fast given the complexity of what it's doing.
 
 {% highlight R %}
 #----------------no polls inbetween the elections------------
@@ -134,7 +134,7 @@ Next I wanted to add a single polling firm.  I chose Nielsen's 42 polls because 
 
 <img src="/img/0102-one-poll.svg" width = "100%">
 
-That model was specified in Stan as follows.  The Stan program is more complex now; I've had to specify how many polls I have (`y_n = 42`) and the values for each poll.  This way I only have to specify 42 measurement errors as part of the probability model - other implementations I've seen of this approach ask for an estimate of measurement error for each poll on each day, treating the days with no polls as missing values to be estimated.  That obviously adds a huge computational load I wanted to avoid.
+That model was specified in Stan as set out below.  The Stan program is more complex now; I've had to specify how many polls I have (`y_n`), the values for each poll (`y_values`), and the days since the last election each poll was taken (`y_days`).  This way I only have to specify 42 measurement errors as part of the probability model - other implementations I've seen of this approach ask for an estimate of measurement error for each poll on each day, treating the days with no polls as missing values to be estimated.  That obviously adds a huge computational load I wanted to avoid.
 
 In this program, I haven't yet added in the notion of a house effect for Nielsen.  Each measurement Nielsen made is assumed to have been an unbiased one.  Again, I'll be relaxing this later.  The state model is also the same as before ie standard deviation of the day to day innovations is still hard coded as 0.25 percentage points.
 
@@ -172,7 +172,7 @@ model {
 }
 {% endhighlight %}
 
-Here's the R code to prepare the data and pass it to Stan.  Interestingly, fitting this model is noticeably faster than the one with no polling data at all.  My intuition for this is that now the state space is constrained to being reasonably close to some actually observed measurements, it's an easier job for Stan to know where is good explore.
+Here's the R code to prepare the data and pass it to Stan.  Interestingly, fitting this model is noticeably faster than the one with no polling data at all.  My intuition for this is that now the state space is constrained to being reasonably close to some actually observed measurements, it's an easier job for Stan to know where is good to explore.
 
 {% highlight R %}
 #--------------------AC Nielson-------------------
@@ -352,11 +352,15 @@ plot_results(stan_mod3) +
 
 ## Estimates of polling house effects
 
-Here's a comparison of the house effects estimated by my with Stan, to those in Jackman's 2009 book:
+Here's the house effects estimated by me with Stan, compared to those in Jackman's 2009 book:
 
 <img src="/img/0102-compare-house-effects.svg" width = "100%">
 
-Basically we got the same results - certainly close enough anyway.
+Basically we got the same results - certainly close enough anyway.  Jackman writes:
+
+> "The largest effect is for the face-to-face polls conducted by Morgan; the point estimate of the house effect is 2.7 percentage points, which is very large relative to the classical sampling error accompanhying these polls."
+
+Interestingly, Morgan's phone polls did much better.
 
 Here's the code that did that comparison:
 
