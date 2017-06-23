@@ -35,3 +35,6 @@ img/Thumbs.db
 
 
 _working/docword*
+
+# stan compiled objects
+*.rds
