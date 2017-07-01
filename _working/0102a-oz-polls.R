@@ -2,11 +2,13 @@
 # vectorize mu
 # make mu on logit scale
 # vectorize the polls
-# double the variance of the polls to account for total survey error
+# double the variance of the polls to account for total survey error - because worried about http://www.slate.com/articles/news_and_politics/politics/2016/08/don_t_be_fooled_by_clinton_trump_polling_bounces.html
 # calculate the poll standard errors from mu, not the poll 
+# change the innovations to be based on student_t(4, mu, sigma) rather than normal(mu, sigma)
 
-
-
+# Still to consider 
+# - non-centering
+# - making the house effects on the logit scale too
 
 library(tidyverse)
 library(scales)
@@ -54,16 +56,12 @@ plot_results <- function(stan_m){
 
 #----------------no polls inbetween the elections------------
 d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = days_between_elections)
-# d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = 100)
+# d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = 100) # used during dev
 
 system.time({
   stan_mod1 <- stan(file = 'oz-polls-1a.stan', data = d1,
   control = list(max_treedepth = 20))
   }) 
-
-summary(stan_mod1, par = "mu")
-
-
 
 # Original version
 # 1800 seconds ie 30 minutes for full dataset
@@ -169,7 +167,10 @@ system.time({
                                    adapt_delta = 0.8),
                     iter = 4000)
 }) 
-# comes down from about 600 seconds to 200 seconds when vectorised and calculating standard errors
+# comes down from about 600 seconds in the non-vectorised version to 200 seconds when vectorised and 
+# calculating standard errors;
+# goes back up to 400 seconds when the inflation added to poll standard errors
+# and up to 600 seconds when the innovation distribution is changed to student_t(4, mu, sigma)
 
 svg("../img/0102a-all-polls.svg", 8, 6)
 plot_results(stan_mod3) +
@@ -177,7 +178,8 @@ plot_results(stan_mod3) +
    geom_line(aes(y = middle)) +
    labs(colour = "") +
    ggtitle("Voting intention for the ALP between the 2004 and 2007 Australian elections",
-           "Latent variable estimated with use of all major firms' polling data")
+           "Daily innovations with a Student's t distribution with 4 degrees of freedom; 
+total survey variance inflated 2x usual sampling error.")
 dev.off()
   
 house_effects <- summary(stan_mod3, pars = "d")$summary %>%
@@ -203,7 +205,9 @@ d <- rbind(house_effects, jackman) %>%
    mutate(org = fct_reorder(org, mean),
           ypos = as.numeric(org) + 0.1 - 0.2 * (source == "Stan")) 
 
-svg("../img/0102-compare-house-effects.svg", 8, 5)
+# indicates the ALP overestimates a bit higher than Jackman's.  I think it is using
+# the logit scale that leads to that change.
+svg("../img/0102a-compare-house-effects.svg", 8, 5)
 d %>%
    ggplot(aes(y = ypos, colour = source)) +
    geom_segment(aes(yend = ypos, x = `2.5%`, xend = `97.5%`)) +
@@ -220,6 +224,6 @@ d %>%
            "Basically the same results in new analysis with Stan as in the original Jackman (2009)")
 dev.off()
 
-summary(stan_mod3, pars = "sigma")$summary
+
 
 convert_pngs("0102")

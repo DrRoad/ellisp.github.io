@@ -70,14 +70,14 @@ model {
   
   sigma ~ normal(0.01, 0.01);              // prior for innovation sd.  
   
-  mu[2:n_days] ~ normal(mu[1:(n_days - 1)], sigma);
+  mu[2:n_days] ~ student_t(4, mu[1:(n_days - 1)], sigma);
       
   // measurement model
   // 1. Election result
   mu_finish ~ normal(mu[n_days], 0.001);
   
   // 2. Polls
-  d ~ normal(0, 7.5); // ie a fairly loose prior for house effects
+  d ~ normal(0, 0.05); // ie a fairly loose prior for house effects (on scale of [0,1])
   
   y1_values ~ normal(inv_logit(mu[y1_days]) + d[1], y1_se);
   y2_values ~ normal(inv_logit(mu[y2_days]) + d[2], y2_se);
