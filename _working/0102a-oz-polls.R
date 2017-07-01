@@ -1,9 +1,19 @@
+# changes compared to previous version:
+# vectorize mu
+# make mu on logit scale
+# vectorize the polls
+# double the variance of the polls to account for total survey error
+# calculate the poll standard errors from mu, not the poll 
+
+
+
+
 library(tidyverse)
 library(scales)
 library(pscl)
 library(forcats)
 library(rstan)
-
+library(boot) # for logit and inv.logit
 rstan_options(auto_write = TRUE)
 options(mc.cores = 7)
 
@@ -12,7 +22,6 @@ data(AustralianElectionPolling)
 data(AustralianElections)
 
 days_between_elections <- as.integer(diff(as.Date(c("2004-10-09", "2007-11-24")))) + 1
-days_between_elections <- 100
 #' Function to plot time series extracted from a stan fit of latent state space model of 2007 Australian election
 plot_results <- function(stan_m){
    if(class(stan_m) != "stanfit"){
@@ -24,9 +33,10 @@ plot_results <- function(stan_m){
    p <- ex %>%
       gather(day, value) %>%
       mutate(day = as.numeric(day),
-             day = as.Date(day, origin = "2004-10-08")) %>%
+             day = as.Date(day, origin = "2004-10-08"),
+             value = inv.logit(value) * 100) %>%
       group_by(day) %>%
-      summarise(mean = mean(value),
+      summarise(middle = mean(value),
                 upper = quantile(value, 0.975),
                 lower = quantile(value, 0.025)) %>%
       ggplot(aes(x = day)) +
@@ -34,7 +44,7 @@ plot_results <- function(stan_m){
            y = "Voting intention for the ALP (%)",
            caption = "Source: Jackman's pscl R package; analysis at https://ellisp.github.io") +
       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3) +
-      geom_line(aes(y = mean)) +
+      geom_line(aes(y = middle)) +
       scale_y_continuous(breaks = 31:54, sec.axis = dup_axis(name = "")) +
       theme(panel.grid.minor = element_blank())
    
@@ -43,14 +53,17 @@ plot_results <- function(stan_m){
 
 
 #----------------no polls inbetween the elections------------
-d1 <- list(mu_start = 37.64, mu_finish = 43.38, n_days = days_between_elections)
-
-d1 <- list(mu_start = 37.64, mu_finish = 43.38, n_days = 100)
+d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = days_between_elections)
+# d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = 100)
 
 system.time({
   stan_mod1 <- stan(file = 'oz-polls-1a.stan', data = d1,
   control = list(max_treedepth = 20))
   }) 
+
+summary(stan_mod1, par = "mu")
+
+
 
 # Original version
 # 1800 seconds ie 30 minutes for full dataset
@@ -65,21 +78,52 @@ system.time({
 # Change to vector[n_days] mu; rather than real mu[n_days]; and timing goes down to 
 # 7 seconds for 100 days, 4 minutes for full dataset
 
-summary(stan_mod1, par = "mu_l")
+# change parameterisation of mu to br logit, timing stays the same
 
 svg("../img/0102a-no-polls.svg", 8, 6)
 plot_results(stan_mod1) +
    ggtitle("Voting intention for the ALP between the 2004 and 2007 Australian elections",
            "Latent variable estimated with no use of polling data")
 dev.off()
-  
+
+
+#--------------------AC Nielson-------------------
+ac <- AustralianElectionPolling %>%
+   filter(org == "Nielsen") %>%
+   mutate(MidDate = startDate + (endDate - startDate) / 2,
+          MidDateNum = as.integer(MidDate - as.Date("2004-10-08")),  # ie number of days since first election; last election (9 October 2004) is day 1
+          p = ALP / 100)
+
+d2 <- list(
+   mu_start = logit(0.3764),
+   mu_finish = logit(0.4338),
+   n_days = days_between_elections,
+   y_values = ac$p,
+   y_days = ac$MidDateNum,
+   y_n = nrow(ac),
+   y_ss = ac$sampleSize
+)
+
+
+system.time({
+   stan_mod2 <- stan(file = 'oz-polls-2a.stan', data = d2,
+                     control = list(max_treedepth = 20))
+}) 
+# 78 seconds when vectorised rather than 512 seconds
+# goes back up to 189 seconds when has to calcualte the standard errors
+
+svg("../img/0102a-one-poll.svg", 8, 6)
+plot_results(stan_mod2) +
+   geom_point(data = ac, aes(x = MidDate, y = ALP)) +
+   ggtitle("Voting intention for the ALP between the 2004 and 2007 Australian elections",
+           "Latent variable estimated with use of just one firm's polling data (Nielsen)")
+dev.off()  
 
 #-------------------all 5 polls--------------------
 all_polls <- AustralianElectionPolling %>%
   mutate(MidDate = startDate + (endDate - startDate) / 2,
          MidDateNum = as.integer(MidDate - as.Date("2004-10-08")),  # ie number of days since first election
          p = ALP / 100,
-         se_alp = sqrt(p * (1- p) / sampleSize) * 100,
          org = fct_reorder(org, ALP))
 
 
@@ -93,29 +137,29 @@ p5 <- filter(all_polls, org == poll_orgs[[5]])
 
 
 d3 <- list(
-  mu_start = 37.64,
-  mu_finish = 43.38,
+  mu_start = logit(0.3764),
+  mu_finish = logit(0.4338),
   n_days = days_between_elections,
-  y1_values = p1$ALP,
+  y1_values = p1$p,
   y1_days = p1$MidDateNum,
   y1_n = nrow(p1),
-  y1_se = p1$se_alp,
-  y2_values = p2$ALP,
+  y1_ss = p1$sampleSize,
+  y2_values = p2$p,
   y2_days = p2$MidDateNum,
   y2_n = nrow(p2),
-  y2_se = p2$se_alp,
-  y3_values = p3$ALP,
+  y2_ss = p2$sampleSize,
+  y3_values = p3$p,
   y3_days = p3$MidDateNum,
   y3_n = nrow(p3),
-  y3_se = p3$se_alp,
-  y4_values = p4$ALP,
+  y3_ss = p3$sampleSize,
+  y4_values = p4$p,
   y4_days = p4$MidDateNum,
   y4_n = nrow(p4),
-  y4_se = p4$se_alp,
-  y5_values = p5$ALP,
+  y4_ss = p4$sampleSize,
+  y5_values = p5$p,
   y5_days = p5$MidDateNum,
   y5_n = nrow(p5),
-  y5_se = p5$se_alp
+  y5_ss = p5$sampleSize
 )
 
 
@@ -124,25 +168,22 @@ system.time({
                     control = list(max_treedepth = 15,
                                    adapt_delta = 0.8),
                     iter = 4000)
-}) # about 600 seconds
+}) 
+# comes down from about 600 seconds to 200 seconds when vectorised and calculating standard errors
 
-svg("../img/0102-all-polls.svg", 8, 6)
+svg("../img/0102a-all-polls.svg", 8, 6)
 plot_results(stan_mod3) +
    geom_point(data = all_polls, aes(x = MidDate, y = ALP, colour = org), size = 2) +
-   geom_line(aes(y = mean)) +
+   geom_line(aes(y = middle)) +
    labs(colour = "") +
    ggtitle("Voting intention for the ALP between the 2004 and 2007 Australian elections",
            "Latent variable estimated with use of all major firms' polling data")
 dev.off()
   
-png("../img/0102-house-effects.png", 8 * 600, 8 * 600, res = 600)
-par(family = "myfont")
-pairs(stan_mod3, pars = c("d", "sigma"))
-dev.off()
-
 house_effects <- summary(stan_mod3, pars = "d")$summary %>%
   as.data.frame() %>%
-  round(2) %>%
+  (function(x){x * 100}) %>%
+  round(4) %>%
   mutate(org = poll_orgs,
          source = "Stan") %>%
   dplyr::select(org, mean, `2.5%`, `97.5%`, source)
