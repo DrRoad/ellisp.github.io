@@ -2,8 +2,9 @@
 
 data {
   int<lower=1> n_days;            // number of days
-  real mu_start;                  // value at starting election, on logit scale
-  real mu_finish;                 // value at final election, on logit scale
+  real mu_start;                  // value at starting election, on 0-1 scale
+  real mu_finish;                 // value at final election, on 0-1 scale
+  real inflator;                  // amount by which to inflate the variance of polls
   
   // change the below into 5 matrixes with 3 columns each for values, days, standard error
   int y1_n;                     // number of polls
@@ -11,7 +12,7 @@ data {
   int y3_n;
   int y4_n;
   int y5_n;
-  vector[y1_n] y1_values;       // actual values in polls, in [0,1] scale
+  vector[y1_n] y1_values;       // actual values in polls, in 0-1 scale
   vector[y2_n] y2_values;       
   vector[y3_n] y3_values;       
   vector[y4_n] y4_values;       
@@ -28,60 +29,57 @@ data {
   vector[y5_n] y5_ss;           
 }
 parameters {
-  vector[n_days] mu;               // underlying state of vote intention, on logit scale
+  vector<lower=0,upper=1>[n_days] mu;               // underlying state of vote intention, on 0-1 scale
   real d[5];                                        // polling effects
   real<lower=0> sigma;                              // sd of innovations
 }
 
 model {
 
+
    // calculate the standard errors of polls on the given day and size:
-  vector[n_days] p;
-  real inflator;
   vector[y1_n] y1_se;
   vector[y2_n] y2_se;
   vector[y3_n] y3_se;
   vector[y4_n] y4_se;
   vector[y5_n] y5_se;
 
-  p = inv_logit(mu);
-  inflator = 2;
-  
-  
   for(i in 1:y1_n){
-     y1_se[i] = sqrt(inflator * p[y1_days[i]] * (1-p[y1_days[i]]) / y1_ss[i]);  
+     y1_se[i] = sqrt(inflator * mu[y1_days[i]] * (1 - mu[y1_days[i]]) / y1_ss[i]);  
   }
   for(i in 1:y2_n){
-     y2_se[i] = sqrt(inflator * p[y2_days[i]] * (1-p[y2_days[i]]) / y2_ss[i]); 
+     y2_se[i] = sqrt(inflator * mu[y2_days[i]] * (1 - mu[y2_days[i]]) / y2_ss[i]); 
   }
   for(i in 1:y3_n){
-     y3_se[i] = sqrt(inflator * p[y3_days[i]] * (1-p[y3_days[i]]) / y3_ss[i]); 
+     y3_se[i] = sqrt(inflator * mu[y3_days[i]] * (1 - mu[y3_days[i]]) / y3_ss[i]); 
   }
   for(i in 1:y4_n){
-     y4_se[i] = sqrt(inflator * p[y4_days[i]] * (1-p[y4_days[i]]) / y4_ss[i]); 
+     y4_se[i] = sqrt(inflator * mu[y4_days[i]] * (1 - mu[y4_days[i]]) / y4_ss[i]); 
   }
   for(i in 1:y5_n){
-     y5_se[i] = sqrt(inflator * p[y5_days[i]] * (1-p[y5_days[i]]) / y5_ss[i]); 
+     y5_se[i] = sqrt(inflator * mu[y5_days[i]] * (1 - mu[y5_days[i]]) / y5_ss[i]); 
   }
 
-  
+
   // state model
-  mu[1] ~ normal(mu_start, 0.001); // starting point
+  mu[1] ~ normal(mu_start, 0.0001); // starting point
   
-  sigma ~ normal(0.01, 0.01);              // prior for innovation sd.  
+  sigma ~ normal(0.005, 0.005);              // prior for innovation sd.  
   
   mu[2:n_days] ~ student_t(4, mu[1:(n_days - 1)], sigma);
+  // mu[2:n_days] ~ normal(mu[1:(n_days - 1)], sigma);
       
   // measurement model
   // 1. Election result
-  mu_finish ~ normal(mu[n_days], 0.001);
+  mu_finish ~ normal(mu[n_days], 0.0001);
   
   // 2. Polls
   d ~ normal(0, 0.05); // ie a fairly loose prior for house effects (on scale of [0,1])
   
-  y1_values ~ normal(inv_logit(mu[y1_days]) + d[1], y1_se);
-  y2_values ~ normal(inv_logit(mu[y2_days]) + d[2], y2_se);
-  y3_values ~ normal(inv_logit(mu[y3_days]) + d[3], y3_se);
-  y4_values ~ normal(inv_logit(mu[y4_days]) + d[4], y4_se);
-  y5_values ~ normal(inv_logit(mu[y5_days]) + d[5], y5_se);
+  y1_values ~ normal(mu[y1_days] + d[1], y1_se);
+  y2_values ~ normal(mu[y2_days] + d[2], y2_se);
+  y3_values ~ normal(mu[y3_days] + d[3], y3_se);
+  y4_values ~ normal(mu[y4_days] + d[4], y4_se);
+  y5_values ~ normal(mu[y5_days] + d[5], y5_se);
+
 }

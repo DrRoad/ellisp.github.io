@@ -1,6 +1,5 @@
 # changes compared to previous version:
 # vectorize mu
-# make mu on logit scale
 # vectorize the polls
 # double the variance of the polls to account for total survey error - because worried about http://www.slate.com/articles/news_and_politics/politics/2016/08/don_t_be_fooled_by_clinton_trump_polling_bounces.html
 # calculate the poll standard errors from mu, not the poll 
@@ -8,7 +7,9 @@
 
 # Still to consider 
 # - non-centering
-# - making the house effects on the logit scale too
+
+# Tried and rejected
+# putting mu on a logit scale
 
 library(tidyverse)
 library(scales)
@@ -36,7 +37,7 @@ plot_results <- function(stan_m){
       gather(day, value) %>%
       mutate(day = as.numeric(day),
              day = as.Date(day, origin = "2004-10-08"),
-             value = inv.logit(value) * 100) %>%
+             value = value * 100) %>%
       group_by(day) %>%
       summarise(middle = mean(value),
                 upper = quantile(value, 0.975),
@@ -55,8 +56,8 @@ plot_results <- function(stan_m){
 
 
 #----------------no polls inbetween the elections------------
-d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = days_between_elections)
-# d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = 100) # used during dev
+d1 <- list(mu_start = 0.3764, mu_finish = 0.4338, n_days = days_between_elections)
+# d1 <- list(mu_start = 0.3764, mu_finish = 0.4338, n_days = 100) # used during dev
 
 system.time({
   stan_mod1 <- stan(file = 'oz-polls-1a.stan', data = d1,
@@ -77,6 +78,7 @@ system.time({
 # 7 seconds for 100 days, 4 minutes for full dataset
 
 # change parameterisation of mu to br logit, timing stays the same
+# changed back again when decided didn't like it...
 
 svg("../img/0102a-no-polls.svg", 8, 6)
 plot_results(stan_mod1) +
@@ -135,9 +137,10 @@ p5 <- filter(all_polls, org == poll_orgs[[5]])
 
 
 d3 <- list(
-  mu_start = logit(0.3764),
-  mu_finish = logit(0.4338),
+  mu_start = 0.3764,
+  mu_finish = 0.4338,
   n_days = days_between_elections,
+  inflator = 2,
   y1_values = p1$p,
   y1_days = p1$MidDateNum,
   y1_n = nrow(p1),
@@ -162,17 +165,21 @@ d3 <- list(
 
 
 system.time({
-  stan_mod3 <- stan(file = 'oz-polls-3a.stan', data = d3,
-                    control = list(max_treedepth = 15,
-                                   adapt_delta = 0.8),
+  stan_mod3 <- stan(file = 'oz-polls-3a.stan', data = d3, chains = 4, 
+                    #control = list(max_treedepth = 15, 
+                    #               adapt_delta = 0.8),
                     iter = 4000)
 }) 
+
+summary(stan_mod3, pars = "sigma")$summary 
+summary(stan_mod3, pars = "d")$summary
+
 # comes down from about 600 seconds in the non-vectorised version to 200 seconds when vectorised and 
 # calculating standard errors;
 # goes back up to 400 seconds when the inflation added to poll standard errors
 # and up to 600 seconds when the innovation distribution is changed to student_t(4, mu, sigma)
 
-svg("../img/0102a-all-polls.svg", 8, 6)
+svg("../img/0102a-all-polls-inflator-2.svg", 8, 6)
 plot_results(stan_mod3) +
    geom_point(data = all_polls, aes(x = MidDate, y = ALP, colour = org), size = 2) +
    geom_line(aes(y = middle)) +
@@ -182,6 +189,23 @@ plot_results(stan_mod3) +
 total survey variance inflated 2x usual sampling error.")
 dev.off()
   
+d4 <- d3
+d4$inflator <- 1
+stan_mod4 <- stan(file = 'oz-polls-3a.stan', data = d4, chains = 4, 
+                  #control = list(max_treedepth = 15, 
+                  #               adapt_delta = 0.8),
+                  iter = 4000)
+
+svg("../img/0102a-all-polls-inflator-1.svg", 8, 6)
+plot_results(stan_mod4) +
+  geom_point(data = all_polls, aes(x = MidDate, y = ALP, colour = org), size = 2) +
+  geom_line(aes(y = middle)) +
+  labs(colour = "") +
+  ggtitle("Voting intention for the ALP between the 2004 and 2007 Australian elections",
+          "Daily innovations with a Student's t distribution with 4 degrees of freedom; 
+total survey variance is just the usual sampling error.")
+dev.off()
+
 house_effects <- summary(stan_mod3, pars = "d")$summary %>%
   as.data.frame() %>%
   (function(x){x * 100}) %>%
@@ -205,8 +229,9 @@ d <- rbind(house_effects, jackman) %>%
    mutate(org = fct_reorder(org, mean),
           ypos = as.numeric(org) + 0.1 - 0.2 * (source == "Stan")) 
 
-# indicates the ALP overestimates a bit higher than Jackman's.  I think it is using
-# the logit scale that leads to that change.
+# indicates the ALP overestimates a bit higher than Jackman's.  I thought it is using
+# the logit scale that leads to that change, but taking it out doesn't change it.  So
+# it is probably about inflating the sampling error
 svg("../img/0102a-compare-house-effects.svg", 8, 5)
 d %>%
    ggplot(aes(y = ypos, colour = source)) +
@@ -226,4 +251,4 @@ dev.off()
 
 
 
-convert_pngs("0102")
+convert_pngs("0102a")
