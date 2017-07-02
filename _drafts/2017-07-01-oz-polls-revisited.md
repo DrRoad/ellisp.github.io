@@ -83,7 +83,10 @@ Now, there's quite a literature on [total survey error](https://scholar.google.c
 
 ## Avoid hard constraints on parameters
 
-logit... then needed the constrain in the end
+Tried logit and worked ok but I was worried this was giving undue emphasis to low polls and dragging the whole thing down... 
+so went back to the original scale.
+
+but then still needed the <lower=0,upper=1> constraint to initiate the chains
 
 
 
