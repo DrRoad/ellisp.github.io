@@ -5,7 +5,7 @@ date: 2017-07-09
 tag: 
    - VotingBehaviour
    - R
-   - Timeseries
+   - RobustMethods
 description: I revisit the state space model of Labor party vote leading up to the 2007 Australian election; and a re-think about total survey error in the context of polling data leads to a more stable, less wiggly underlying state of voting intention.  Also, vectorization in Stan leads to much faster estimation.
 image: /img/0102a-all-polls-inflator-2.svg
 socialimage: http://ellisp.github.io/img/0102a-all-polls-inflator-2.png
@@ -25,7 +25,7 @@ At the end of last fortnight's blog, it looked like this, which was basically id
 
 Most of the changes were under the hood to get performance improvements, or things I explored that made little difference whether I accepted them or not.  One important change in assumptions about total survey error led to the smoother latent voting curve in the eventual graphic.
 
-So here's what I did.
+So here's what I did.  Caveat - I'm marginally more competent with Stan than a fortnight ago, but still at the very early stages of the learning curve; so treat all the below with caution!
 
 ## Vectorise probability statements in Stan wherever possible
 
@@ -78,7 +78,7 @@ However, I agreed with the suggestion that the latent voting intention in my ori
 
 > When there was good news for Mitt Romney, more Republicans opted to respond to the poll; when Obama was riding high, Democrats were more likely to respond. 
 
-In the case of the 2007 Australian election, it seems likely (for example) that there was a surge of enthusiasm when Mark Latham was replaced with Kevin Rudd as leader of the ALP; and that this would have translated into over-estimates of people's likelihood of actually voting for  the ALP, with ALP voters perhaps relishing the chance of telling a pollster what they think.  
+In the case of the 2007 Australian election, it seems likely (for example) that there was a surge of enthusiasm when <del>Mark Latham</del>Kim Beazley was replaced with Kevin Rudd as leader of the ALP; and that this would have translated into over-estimates of people's likelihood of actually voting for  the ALP, with ALP voters perhaps relishing the chance of telling a pollster what they think.  
 
 Voter turnout isn't as the source of randomness in Australia (which has compulsory voting) as other jurisdictions, but it is easy to see many sources of survey error other than the simple sampling error usually reported.  This problem is simply ignored in my model of a fortnight ago - neither the systematic bias of the house effects nor the sampling errors from the standard way of calculating them from polls leaves any way for this extra variance to feature in the model.
 
