@@ -1,15 +1,13 @@
-# changes compared to previous version:
+## Changes compared to previous version:
 # vectorize mu
 # vectorize the polls
 # double the variance of the polls to account for total survey error - because worried about http://www.slate.com/articles/news_and_politics/politics/2016/08/don_t_be_fooled_by_clinton_trump_polling_bounces.html
-# calculate the poll standard errors from mu, not the poll 
 # change the innovations to be based on student_t(4, mu, sigma) rather than normal(mu, sigma)
 
-# Still to consider 
-# - non-centering
-
-# Tried and rejected
-# putting mu on a logit scale
+## Changes that were tried and either couldn't get to work or decided otherwise not to use:
+# calculate the poll standard errors from mu, not the poll
+# putting mu on a logit scale 
+# re-parameterise so an innovation "epsilon" with mean zero is the parameter and mu is a transformed paraeter
 
 library(tidyverse)
 library(scales)
@@ -25,13 +23,15 @@ data(AustralianElectionPolling)
 data(AustralianElections)
 
 days_between_elections <- as.integer(diff(as.Date(c("2004-10-09", "2007-11-24")))) + 1
+
 #' Function to plot time series extracted from a stan fit of latent state space model of 2007 Australian election
+#' Assumes parameter mu is the state space intent to vote ALP, on logit scale
 plot_results <- function(stan_m){
    if(class(stan_m) != "stanfit"){
       stop("stan_m must be an object of class stanfit, with parameters mu representing latent vote at a point in time")
    }
    ex <- as.data.frame(rstan::extract(stan_m, "mu"))
-   names(ex) <- 1:d1$n_days
+   names(ex) <- 1:d3$n_days
    
    p <- ex %>%
       gather(day, value) %>%
@@ -56,8 +56,8 @@ plot_results <- function(stan_m){
 
 
 #----------------no polls inbetween the elections------------
-d1 <- list(mu_start = 0.3764, mu_finish = 0.4338, n_days = days_between_elections)
-# d1 <- list(mu_start = 0.3764, mu_finish = 0.4338, n_days = 100) # used during dev
+d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = days_between_elections)
+# d1 <- list(mu_start = logit(0.3764), mu_finish = logit(0.4338), n_days = 100) # used during dev
 
 system.time({
   stan_mod1 <- stan(file = 'oz-polls-1a.stan', data = d1,
@@ -87,44 +87,13 @@ plot_results(stan_mod1) +
 dev.off()
 
 
-#--------------------AC Nielson-------------------
-ac <- AustralianElectionPolling %>%
-   filter(org == "Nielsen") %>%
-   mutate(MidDate = startDate + (endDate - startDate) / 2,
-          MidDateNum = as.integer(MidDate - as.Date("2004-10-08")),  # ie number of days since first election; last election (9 October 2004) is day 1
-          p = ALP / 100)
-
-d2 <- list(
-   mu_start = logit(0.3764),
-   mu_finish = logit(0.4338),
-   n_days = days_between_elections,
-   y_values = ac$p,
-   y_days = ac$MidDateNum,
-   y_n = nrow(ac),
-   y_ss = ac$sampleSize
-)
-
-
-system.time({
-   stan_mod2 <- stan(file = 'oz-polls-2a.stan', data = d2,
-                     control = list(max_treedepth = 20))
-}) 
-# 78 seconds when vectorised rather than 512 seconds
-# goes back up to 189 seconds when has to calcualte the standard errors
-
-svg("../img/0102a-one-poll.svg", 8, 6)
-plot_results(stan_mod2) +
-   geom_point(data = ac, aes(x = MidDate, y = ALP)) +
-   ggtitle("Voting intention for the ALP between the 2004 and 2007 Australian elections",
-           "Latent variable estimated with use of just one firm's polling data (Nielsen)")
-dev.off()  
-
 #-------------------all 5 polls--------------------
 all_polls <- AustralianElectionPolling %>%
   mutate(MidDate = startDate + (endDate - startDate) / 2,
          MidDateNum = as.integer(MidDate - as.Date("2004-10-08")),  # ie number of days since first election
          p = ALP / 100,
-         org = fct_reorder(org, ALP))
+         org = fct_reorder(org, ALP),
+         se = sqrt(p * (1 - p) / sampleSize))
 
 
 poll_orgs <- as.character(unique(all_polls$org))
@@ -140,39 +109,40 @@ d3 <- list(
   mu_start = 0.3764,
   mu_finish = 0.4338,
   n_days = days_between_elections,
-  inflator = 2,
+  inflator =sqrt(2),
   y1_values = p1$p,
   y1_days = p1$MidDateNum,
   y1_n = nrow(p1),
-  y1_ss = p1$sampleSize,
+  y1_se = p1$se,
   y2_values = p2$p,
   y2_days = p2$MidDateNum,
   y2_n = nrow(p2),
-  y2_ss = p2$sampleSize,
+  y2_se = p2$se,
   y3_values = p3$p,
   y3_days = p3$MidDateNum,
   y3_n = nrow(p3),
-  y3_ss = p3$sampleSize,
+  y3_se = p3$se,
   y4_values = p4$p,
   y4_days = p4$MidDateNum,
   y4_n = nrow(p4),
-  y4_ss = p4$sampleSize,
+  y4_se = p4$se,
   y5_values = p5$p,
   y5_days = p5$MidDateNum,
   y5_n = nrow(p5),
-  y5_ss = p5$sampleSize
+  y5_se = p5$se
 )
 
 
 system.time({
   stan_mod3 <- stan(file = 'oz-polls-3a.stan', data = d3, chains = 4, 
-                    #control = list(max_treedepth = 15, 
-                    #               adapt_delta = 0.8),
+                    control = list(max_treedepth = 15),
                     iter = 4000)
 }) 
 
+
 summary(stan_mod3, pars = "sigma")$summary 
 summary(stan_mod3, pars = "d")$summary
+summary(stan_mod3, pars = "epsilon")$summary
 
 # comes down from about 600 seconds in the non-vectorised version to 200 seconds when vectorised and 
 # calculating standard errors;
@@ -189,22 +159,19 @@ plot_results(stan_mod3) +
 total survey variance inflated 2x usual sampling error.")
 dev.off()
   
-d4 <- d3
-d4$inflator <- 1
-stan_mod4 <- stan(file = 'oz-polls-3a.stan', data = d4, chains = 4, 
-                  #control = list(max_treedepth = 15, 
-                  #               adapt_delta = 0.8),
-                  iter = 4000)
 
-svg("../img/0102a-all-polls-inflator-1.svg", 8, 6)
-plot_results(stan_mod4) +
-  geom_point(data = all_polls, aes(x = MidDate, y = ALP, colour = org), size = 2) +
-  geom_line(aes(y = middle)) +
-  labs(colour = "") +
-  ggtitle("Voting intention for the ALP between the 2004 and 2007 Australian elections",
-          "Daily innovations with a Student's t distribution with 4 degrees of freedom; 
-total survey variance is just the usual sampling error.")
-dev.off()
+
+
+
+
+
+
+
+
+
+
+
+#------------compare house effects--------------------
 
 house_effects <- summary(stan_mod3, pars = "d")$summary %>%
   as.data.frame() %>%
