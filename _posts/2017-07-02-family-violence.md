@@ -6,9 +6,9 @@ tag:
    - NewZealand
    - Crime
    - R
-description: 
+description: I look at the interaction between deprivation, being Māori, and family violence - combining data from the New Zealand census, the New Zealand index of deprivation, and the Family Violence Death Review Committee.
 image: /img/0103-interaction.svg
-socialimage: http://ellisp.github.io/img/0103-interaction.svg.png
+socialimage: http://ellisp.github.io/img/0103-interaction.png
 category: R
 ---
 
@@ -18,7 +18,11 @@ I was interested by Figure 3 on page 21, which shows a bar chart of the number o
 
 <img src='/img/0103-interaction.svg' width='100%'>
 
-We can see clearly that proportionately speaking, there is a much higher probability of someone becoming an offender in a family violence death in higher deprivation areas.  The relationship with area deprivation is much stronger for Māori people.  Māori living in the most deprived quintile are around four times as likely to become such offenders than Māori in the middle quintle; for non-Māori the ratio is a bit less than two.  Māori and non-Māori living in the 60% least deprived areas have similar (low) probabilities of becoming an offender.
+We can see clearly that proportionately speaking, there is a much higher probability of someone being an offender in a family violence death in higher deprivation areas.  The relationship with area deprivation is much stronger for Māori people.  Māori living in the most deprived quintile are around four times as likely to become such offenders than Māori in the middle quintile; for non-Māori the ratio is a bit less than two.  Māori and non-Māori living in the 60% least deprived areas (ie quintiles 1, 2 and 3) have similar (low) probabilities of becoming an offender.
+
+I like my chart because it highlights not just the importance for understanding family violence of the deprivation of the area of residence and of being Māori, but the critical inflating effect of the *combination* of the two.
+
+A quote from the foreword to the report makes a related point:
 
 > "The over-representation of Māori among family violence deceased and offenders, as well as those
 from the most deprived neighbourhoods, illustrates that family violence is not distributed equally. For
@@ -32,7 +36,7 @@ improving equity in the quality and safety of services for all populations is pa
 Pulling together this chart was surprisingly fiddly and I had to draw on three different data sources:
 
 - the offender numbers in the Committee's report (which I couldn't find as a table, so had to read off the bar chart)
-- Massey University's [New Zealand index of deprivation](http://cphronline.massey.ac.nz/maps/maps_nz_dep_index.html)
+- The [New Zealand index of deprivation](http://cphronline.massey.ac.nz/maps/maps_nz_dep_index.html)
 - Stats NZ's [2013 Census meshblock dataset](http://www.stats.govt.nz/Census/2013-census/data-tables/meshblock-dataset.aspx), which I've previously made available in pre-processed form in my [nzcensus R package](https://github.com/ellisp/nzelect).
 
 ## Combining data
@@ -84,7 +88,7 @@ My first step was to some exploration and reality-checking to see if I've obtain
 
 From my understanding of the method of the deprivation index, there should be equal numbers of people in each decile of deprivation, meaning all the columns in the chart above should all be the same height.  Clearly they're not.  I'll file that one down to investigate later.  I did try constructing my own populations with both "Resident Population" and "Population on Census night", which didn't make any noticeable difference.
 
-Of more interest, here's a comparison of Massey's deprivation index with some of the census variables.  We see that the more deprived area units also have lower incomes, more smokers, more people of Pacific origin, and less people with partners:
+Of more interest, here's a comparison of the deprivation index with some of the census variables.  We see that the more deprived area units also have lower incomes, more smokers, more people of Pacific origin, and less people with partners:
 
 <img src='/img/0103-boxplots.svg' width='100%'>
 
