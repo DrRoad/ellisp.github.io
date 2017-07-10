@@ -10,6 +10,7 @@ socialimage: /img/gam-vote-predictions.png
 
 All dates and times are New Zealand time.
 
+- *11 July 2017* Add an extra poll (Colmar Brunton).  National or National led coalition back down to 36%.
 - *24 June 2017* Add an extra poll (Roy Morgan).  National or National led coalition continues to nudge up, now to 38%.
 - *17 June 2017* Add an extra poll. Probability of National or National-led coalition continues to nudge up, now reaching 34%.
 - *7 June 2017* Add an extra poll.  Makes National and National-led coalition slightly more favourable than previously, but not really a material change.
