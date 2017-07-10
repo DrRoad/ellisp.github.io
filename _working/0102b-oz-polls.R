@@ -128,17 +128,6 @@ total survey variance inflated 2x usual sampling error.")
 dev.off()
   
 
-
-
-
-
-
-
-
-
-
-
-
 #------------compare house effects--------------------
 
 house_effects <- summary(stan_mod3, pars = "d")$summary %>%

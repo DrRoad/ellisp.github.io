@@ -1,4 +1,5 @@
-// oz-polls-3b.stan
+// <source>./_working/oz-polls-3b.stan
+// Run this Stan script from <source>./_working/0102b-oz-polls.R
 
 data {
   int<lower=1> n_days;            // number of days
@@ -22,23 +23,24 @@ data {
   int y3_days[y3_n]; 
   int y4_days[y4_n]; 
   int y5_days[y5_n]; 
-  vector[y1_n] y1_se;             // the sample errors of the polls
+  vector[y1_n] y1_se;             // the sampling errors of the polls
   vector[y2_n] y2_se;           
   vector[y3_n] y3_se;           
   vector[y4_n] y4_se;           
   vector[y5_n] y5_se;           
 }
 parameters {
-  vector[n_days  - 1] epsilon;         // 
+  vector[n_days] epsilon;         // 
   real d[5];                      // polling effects
   real<lower=0> sigma;            // sd of innovations
+  real alpha;                     // moving average term
 }
 
 transformed parameters {
   vector[n_days] mu;
   mu[1] = mu_start;
   for(i in 2:n_days)
-    mu[i] = mu[i-1] + epsilon[i - 1] * sigma;
+    mu[i] = mu[i-1] + epsilon[i] * sigma + alpha * epsilon[i-1] * sigma; // MA(1) process
 }
 
 
@@ -48,7 +50,9 @@ model {
   d ~ normal(0, 0.05); // ie a fairly loose prior for house effects (on scale of [0,1])
   
   
-  // state model
+  // state model.  The trick to doing this by the innovation, rather than something 
+  // centered at mu, is to make the scale below 1, and just put sigma into the
+  // transformed parameters block.
   epsilon ~ student_t(4, 0, 1);
 
   // measurement model
