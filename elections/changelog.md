@@ -10,6 +10,7 @@ socialimage: /img/gam-vote-predictions.png
 
 All dates and times are New Zealand time.
 
+- *12 July 2017* Add Model B, an alternative forecasting method drawing on a state space model.  Main difference in approach is an assumption that growth and decline in individual parties' results to date will *not* continue up to election day and that latent voting intention is instead a random walk.  The implication of this is a much strong outlook for a National-led coalition - 58% chance instead of 36%.
 - *11 July 2017* Add an extra poll (Colmar Brunton).  National or National led coalition back down to 36%.
 - *24 June 2017* Add an extra poll (Roy Morgan).  National or National led coalition continues to nudge up, now to 38%.
 - *17 June 2017* Add an extra poll. Probability of National or National-led coalition continues to nudge up, now reaching 34%.
