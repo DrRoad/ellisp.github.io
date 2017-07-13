@@ -9,7 +9,7 @@
 		<atom:link href="{{ site.url }}/feed.R.xml" rel="self" type="application/rss+xml" />
 		{% for post in site.categories.R limit:10 %}
 			<item>
-				<title>{{ post.title | xml_escape }}</title>
+				<title>{{ post.title | xml_escape }} by @ellis2013nz</title>
 					<description>{{ post.content | replace:"/img/", "http://ellisp.github.io/img/" | xml_escape }}</description>
 				<pubDate>{{ post.date | date_to_rfc822 }}</pubDate>
 				<link>{{ site.url }}{{ post.url }}</link>
