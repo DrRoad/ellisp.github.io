@@ -38,3 +38,8 @@ _working/docword*
 
 # stan compiled objects
 *.rds
+
+# things associated with the "most popular pages" analysis
+.httr-oauth
+# this page is machine generated when .rprofile is run:
+_includes/most-popular.html 

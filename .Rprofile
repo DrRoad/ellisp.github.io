@@ -14,3 +14,6 @@ theme_set(theme_light(base_family = "myfont") +
              theme(legend.position = "bottom") +
              theme(plot.caption = element_text(colour = "grey50"))) 
 update_geom_defaults("text", list(family = "myfont"))
+
+# update the "most popular" pages page
+source("../_R/_analytics.R")
