@@ -6,7 +6,7 @@ socialimage: /img/gam-vote-predictions.png
 ---
 <p></p>
 
-<img src='/img/gam-final-chances-bar.svg' width='100%'>
+<img src='/img/gam-final-chances-bar.svg' width='100%'> 
 
 This page provides probabilistic predictions for the 2017 New Zealand General Election from my currently preferred approach, "Model A".  It draws on multiple opinion polls, but goes a step beyond a straightforward poll aggregator in that the estimated voting intention from successive polls is used to forecast the chances of each party to actually win seats on election day, taking into account uncertainty.  Polling results are also adjusted to take into account different polling firms' past performance in predicting different parties' results.
 
