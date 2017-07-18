@@ -5,6 +5,8 @@ proj_dir <- getwd()
 library(showtext)
 library(ggplot2)
 library(scales)
+library(grDevices)
+library(stats)
 
 font.add.google("Poppins", "myfont")
 showtext.auto()
