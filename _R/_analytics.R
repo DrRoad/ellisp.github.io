@@ -44,7 +44,7 @@ pages <- pages_orig %>%
 
 p <- pages %>%
   arrange(desc(pageViews)) %>%
-  slice(20:1) %>%
+  dplyr::slice(20:1) %>%
   mutate(pageTitle = factor(pageTitle, levels = pageTitle)) %>%
   ggplot(aes(x = pageViews_prop, y = pageTitle)) +
   geom_point(colour = "steelblue") +
@@ -65,7 +65,7 @@ convert_pngs("analytics")
 pagesnip <- pages %>%
   arrange(desc(pageViews)) %>%
   mutate(snip = paste0("<li><a href='", pagePath, "'>", pageTitle, "</a></li>")) %>%
-  slice(1:100)
+  dplyr::slice(1:100)
 
 
 writeLines(pagesnip$snip, con = "../_includes/most-popular.html")
