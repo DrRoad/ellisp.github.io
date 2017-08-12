@@ -4,9 +4,9 @@ title: Sampling distribution of weighted Gini coefficient
 date: 2017-08-05
 tag: 
    - Inequality
-   - 
+   - Transformations
    - R
-description: XXX
+description: I play around with the sampling distribution of Gini coefficients calculated with weighted data; and verify that the Gini calculation method in a recent Stats NZ working paper is the one in the acid R package.
 image: /img/0106-sample-distributions.svg
 socialimage: http://ellisp.github.io/img/0106-sample-distributions.png
 category: R
