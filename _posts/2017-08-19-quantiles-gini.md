@@ -5,7 +5,7 @@ date: 2017-08-19
 tag: 
    - Inequality
    - R
-description: foo blah
+description: Calculating the Gini coefficient for inequality directly of mean income by decile produces a slightly biased downwards estimate.  I correct for this and demonstrate on the World Panel Income Distribution data.
 image: /img/0107-ginis-from-deciles.svg
 socialimage: http://ellisp.github.io/img/0107-ginis-from-deciles.png
 category: R
@@ -13,7 +13,7 @@ category: R
 
 ## Income inequality data 
 
-Ideally the Gini coefficient to estimate inequality is based on original household survey data with hundreds or thousands of data points.  Often this isn't available due to access restrictions from privacy or other concerns, and all that is available is some kind of aggregate measure.  Some aggregations include the income at the 80th percentile divided by that at the 20th (or 90 and 10), the number of people at the top of the distribution whose combined income is equal to that of everyone else, or the income of the top 1% as a percentage of all income.  I wrote a little more about this in [one of my earliest blog posts](http://ellisp.github.io/blog/2015/09/12/inequality-stats-distributions).
+Ideally the Gini coefficient to estimate inequality is based on original household survey data with hundreds or thousands of data points.  Often this data isn't available due to access restrictions from privacy or other concerns, and all that is published is some kind of aggregate measure.  Some aggregations include the income at the 80th percentile divided by that at the 20th (or 90 and 10); the number of people at the top of the distribution whose combined income is equal to that of everyone else; or the income of the top 1% as a percentage of all income.  I wrote a little more about this in [one of my earliest blog posts](http://ellisp.github.io/blog/2015/09/12/inequality-stats-distributions).
 
 One way aggregated data are sometimes presented is as the mean income in each decile or quintile.  This is not the same as the actual quantile values themselves, which are the *boundary* between categories. The 20th percentile is the value of the 20/100th person when they are lined up in increasing order, whereas the mean income of the first quintile is the mean of all the incomes of a "bin" of everyone from 0/100 to 20/100, when lined up in order.
 
@@ -47,7 +47,7 @@ wpid <- read.dta("LM_WPID_web.dta")
 angola <- wpid[1:10, c("RRinc", "group")]
 {% endhighlight %}
 
-Here's the resulting 10 numbers:
+Here's the resulting 10 numbers.  N
 
 <img src='/img/0107-angola-quantiles.svg' width='100%'>
 
@@ -61,8 +61,8 @@ Those graphics were drawn with this code:
 ggplot(angola, aes(x = group, y = RRinc)) +
   geom_line() +
   geom_point() +
-  ggtitle("Mean income by decile in Angola in 1995") +
-  scale_y_continuous("Annual income for each decile group", label = dollar) +
+  ggtitle("Mean consumption by decile in Angola in 1995") +
+  scale_y_continuous("Annual consumption for each decile group", label = dollar) +
   scale_x_continuous("Decile group", breaks = 1:10) +
   labs(caption = "Source: Lakner/Milanovic World Panel Income Distribution data") +
   theme(panel.grid.minor = element_blank())
@@ -76,10 +76,10 @@ angola %>%
   geom_ribbon(aes(ymax = pop_prop, ymin = cum_inc_prop), fill = "steelblue", alpha = 0.2) +
   geom_abline(intercept = 0, slope = 1, colour = "steelblue") +
   labs(x = "Cumulative proportion of population",
-       y = "Cumulative proportion of income",
+       y = "Cumulative proportion of consumption",
        caption = "Source: Lakner/Milanovic World Panel Income Distribution data") +
-  ggtitle("Mean income by decile in Angola in 1995",
-          "Lorenz curve based on binned decile mean income")
+  ggtitle("Inequality in Angola in 1995",
+          "Lorenz curve based on binned decile mean consumption")
 {% endhighlight %}
 
 
@@ -148,9 +148,9 @@ ginis_df %>%
 
 ## A better method for Gini from deciles?
 
-In retrospect I should have stopped there; after all, there is hardly any difference between 0.32 and 0.34; probably much less than the sampling error from the survey.  But I wanted to explore if there were a better way.  The method I chose was to: 
+Maybe I should have stopped there; after all, there is hardly any difference between 0.32 and 0.34; probably much less than the sampling error from the survey.  But I wanted to explore if there were a better way.  The method I chose was to: 
 
-- choose a log-normal distribution that would generate the 10 decile averages we have; 
+- choose a log-normal distribution that would generate (close to) the 10 decile averages we have; 
 - simulate individual-level data from that distribution; and
 - estimate the Gini coefficient from that simulated data.
 
@@ -161,7 +161,8 @@ Here's how I did that:
 {% highlight R %}
 # algorithm will be iterative
 # 1. assume the 10 binned means represent the following quantiles: 0.05, 0.15, 0.25 ... 0.65, 0.75, 0.85, 0.95
-# 2. pick the best lognormal distribution that fits those 10 quantile values.  Treat as a non-linear optimisation problem
+# 2. pick the best lognormal distribution that fits those 10 quantile values. 
+#    Treat as a non-linear optimisation problem and solve with `optim()`.
 # 3. generate data from that distribution and work out what the actual quantiles are
 # 4. repeat 2, with these actual quantiles
 

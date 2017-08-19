@@ -26,8 +26,8 @@ svg("../img/0107-angola-quantiles.svg", 7, 5)
 ggplot(angola, aes(x = group, y = RRinc)) +
   geom_line() +
   geom_point() +
-  ggtitle("Mean income by decile in Angola in 1995") +
-  scale_y_continuous("Annual income for each decile group", label = dollar) +
+  ggtitle("Mean consumption by decile in Angola in 1995") +
+  scale_y_continuous("Annual consumption for each decile group", label = dollar) +
   scale_x_continuous("Decile group", breaks = 1:10) +
   labs(caption = "Source: Lakner/Milanovic World Panel Income Distribution data") +
   theme(panel.grid.minor = element_blank())
@@ -44,10 +44,10 @@ angola %>%
   geom_ribbon(aes(ymax = pop_prop, ymin = cum_inc_prop), fill = "steelblue", alpha = 0.2) +
   geom_abline(intercept = 0, slope = 1, colour = "steelblue") +
   labs(x = "Cumulative proportion of population",
-       y = "Cumulative proportion of income",
+       y = "Cumulative proportion of consumption",
        caption = "Source: Lakner/Milanovic World Panel Income Distribution data") +
-  ggtitle("Mean income by decile in Angola in 1995",
-          "Lorenz curve based on binned decile mean income")
+  ggtitle("Inequality in Angola in 1995",
+          "Lorenz curve based on binned decile mean consumption")
 dev.off()
 
 weighted.gini(angola$RRinc)
@@ -245,3 +245,6 @@ wpid %>%
   ggtitle("Inequality by country",
           "Most recent year available up to 2008; Gini coefficients are estimated from decile mean income.")
 dev.off()  
+
+# cleanup
+unlink("LM_WPID_web.dta")
