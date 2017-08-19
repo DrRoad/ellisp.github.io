@@ -12,6 +12,8 @@ socialimage: /img/gam-vote-predictions.png
 
 All dates and times are New Zealand time.
 
+- *19 August 2017* Updated Model A with an extra poll (Roy Morgan); Model B still having problems converging so is now two polls behind.  Shiny web app ("choose your own coalition") is also two polls out of date at this point.
+- *18 August 2017* For Model A, add an extra poll (Colmar Brunton); and shift down the assumption of Ohariu going to Peter Dunne to 0.3 (from 0.6), based on the only [electorate-specific poll](http://www.radionz.co.nz/news/political/337081/dunne-trailing-in-ohariu-electorate-race-poll) available.  Net impact is a bit of an increase in National's chances; the interpretation of this is the model picks up recent negative polls for both the Greens and Labour but Labour's recent positive ones aren't enough to pull them up again.  On the other hand, the volatility is clearly a bit much for the state space model and it doesn't converge to sensible values.  So Model B and the Combined model are not updated at this stage.
 - *9 August 2017* Add an extra poll (Newshub Reid Research).  Not much change to the main Model A, but the more volatile Model B has now converged with it.
 - *1 August 2017* Add an extra poll (Newshub Reid Research).  Impact of recent changes on the chance of a National coalition (my headline prediction are basically unchanged for the main model, Model A; the more volatile Model B is perhaps converging towards Model A.
 - *31 July 2017* Add an extra poll (One News Colmar Brunton).
