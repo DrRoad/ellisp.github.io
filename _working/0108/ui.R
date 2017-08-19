@@ -1,6 +1,7 @@
 library(shiny)
 library(DT)
 load("vars.rda")
+load("vars_list.rda")
 
 shinyUI(fluidPage(
   
@@ -12,15 +13,20 @@ shinyUI(fluidPage(
     sidebarPanel(
       selectizeInput("variable", 
                      "Choose a variable", 
-                     as.character(vars)),
+                     choices = vars_list,
+                     selected = sample(as.character(vars), 1),
+                     multiple = FALSE),
       selectInput("value", "Choose to show",
-                  c("Number (thousands of people)", "Percentage", "Pearson residuals", "Margin of error", "Sample size"),
+                  c("Number (thousands of people)", "Percentage", "Pearson residuals", "Sample size"),
                   selected = "Percentage"),
       conditionalPanel("input.value == 'Percentage'",
                        selectInput("percent_type", "Show percentages that add up to 100 for:",
                                    c("Rows", "Columns"),
                                    selected = "Rows")),
-      checkboxInput("hide_n", "Hide sample size from party names"),
+      checkboxInput("hide_n", "Hide sample size from party names", value = TRUE),
+      radioButtons("weight_type", "Choose which survey weights to use",
+                  c("Calibrated to party vote totals", "Original NZES weights"),
+                  select = "Calibrated to party vote totals"),
       p("The population the survey was drawn from was the 3,140,417 people on the electoral roll 
 at the time of the 2014 election."),
       

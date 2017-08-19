@@ -10,8 +10,16 @@ load("nzes.rda")
 load("vars.rda")
 
 
-
 shinyServer(function(input, output, session) {
+  the_weight_var <- reactive({
+    if(input$weight_type == "Original NZES weights"){
+      tmp <- "dwtfin"
+    } else {
+      tmp <- "calibrated_weight"
+    }
+    return(tmp)
+  })
+  
   the_var <- reactive({
     names(vars)[as.character(vars) == input$variable]
   }) 
@@ -33,8 +41,9 @@ shinyServer(function(input, output, session) {
   
    my_table <- reactive({
      tab <- nzes %>%
+       mutate_("myweight" = the_weight_var()) %>%
        group_by_(the_var(), row_var()) %>%
-       summarise(weighted = sum(dwtfin),
+       summarise(weighted = sum(myweight),
                  unweighted = n()) %>%
        ungroup()
      
