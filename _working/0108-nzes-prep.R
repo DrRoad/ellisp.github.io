@@ -69,6 +69,12 @@ nzes <- nzes_orig %>%
     }
   }) %>%
   
+  # update gender classification to match the 2015 Stats NZ form of words at
+  # http://www.stats.govt.nz/tools_and_services/media-centre/media-releases-2015/gender-identity-17-july-15.aspx
+  mutate(dsex = ifelse(dsex == "Transsexual or transgender", "Gender-diverse", as.character(dsex)),
+         dsex = fct_infreq(dsex)) %>%
+  
+  # lump up party vote:
   mutate(partyvote = ifelse(is.na(dpartyvote), "Did not vote", as.character(dpartyvote)),
          partyvote = gsub("net.Man", "net-Man", partyvote),
          partyvote = fct_lump(partyvote, 10, other_level = "Another party"),
