@@ -1,6 +1,6 @@
 library(tidyverse)
 library(scales)
-library(foreign) # for important Stata files
+library(foreign) # for importing Stata files
 library(actuar)  # for access to the Burr distribution
 library(acid)
 library(forcats)
@@ -20,14 +20,48 @@ wpid <- read.dta("LM_WPID_web.dta")
 # RRinc is average per capita income of the decile in 2005 PPP
 
 # the first 10 rows are Angola in 1995, so let's experiment with them
-x <- wpid[1:10, c("RRinc", "group")]
+angola <- wpid[1:10, c("RRinc", "group")]
 
-ggplot(x, aes(x = group, y = RRinc)) +
+svg("../img/0107-angola-quantiles.svg", 7, 5)
+ggplot(angola, aes(x = group, y = RRinc)) +
   geom_line() +
-  geom_point()
+  geom_point() +
+  ggtitle("Mean income by decile in Angola in 1995") +
+  scale_y_continuous("Annual income for each decile group", label = dollar) +
+  scale_x_continuous("Decile group", breaks = 1:10) +
+  labs(caption = "Source: Lakner/Milanovic World Panel Income Distribution data") +
+  theme(panel.grid.minor = element_blank())
+dev.off()
 
+  
+svg("../img/0107-angola-lorenz.svg", 7, 5)
+angola %>%
+  arrange(group) %>%
+  mutate(cum_inc_prop = cumsum(RRinc) / sum(RRinc),
+         pop_prop = group / max(group)) %>%
+  ggplot(aes(x = pop_prop, y = cum_inc_prop)) +
+  geom_line() +
+  geom_ribbon(aes(ymax = pop_prop, ymin = cum_inc_prop), fill = "steelblue", alpha = 0.2) +
+  geom_abline(intercept = 0, slope = 1, colour = "steelblue") +
+  labs(x = "Cumulative proportion of population",
+       y = "Cumulative proportion of income",
+       caption = "Source: Lakner/Milanovic World Panel Income Distribution data") +
+  ggtitle("Mean income by decile in Angola in 1995",
+          "Lorenz curve based on binned decile mean income")
+dev.off()
+
+weighted.gini(angola$RRinc)
 
 #========equating means of 10 sorted bins to quantiles===========
+population <- rburr(10000, 1, 3, 3)
+
+svg("../img/0107-burr.svg", 7, 4)
+par(family = "myfont", bty = "l", font.main = 1)
+plot(density(population), main = "Burr(1,3,3) distribution")
+dev.off()
+
+
+
 # purpose of this section is to explore what the relationship is between mean
 # income of the 10 decile groups to the quantiles of an underlying distribution.
 # Naively, might think the means are just the 0.05, 0.15, 0.25 ... 0.95 quantiles.
@@ -54,7 +88,26 @@ bin_avs <- function(y, len = 10){
   return(tmp)
 }
 
-bin_avs(rbeta(100, 2, 54))
+ginis <- numeric(99)
+for(i in 1:99){
+  ginis[i]   <- weighted.gini(bin_avs(population, len = i + 1)$mean)$Gini
+}
+ginis_df <- data.frame(
+  number_bins = 2:100,
+  gini = ginis
+)
+
+svg("../img/0107-ginis-from-deciles.svg", 9, 6)
+ginis_df %>%
+  mutate(label = ifelse(number_bins < 11 | round(number_bins / 10) == number_bins / 10, number_bins, "")) %>%
+  ggplot(aes(x = number_bins, y = gini)) +
+  geom_line(colour = "steelblue") +
+  geom_text(aes(label = label)) +
+  labs(x = "Number of bins",
+       y = "Gini coefficient estimated from means within bins") +
+  ggtitle("Estimating Gini coefficient from binned mean values of a Burr distribution population",
+          paste0("Correct Gini is ", round(weighted.gini(population)$Gini, 3), ". Around 25 bins needed for a really good estimate."))
+dev.off()
 
 reps <- 1000
 results <- matrix(0, reps, 10)
@@ -64,42 +117,27 @@ for(i in 1:reps){
   y <- rgamma(800, shape, rate)
   results[i, ] <- pgamma(bin_avs(y)$mean, shape, rate)
 }
-plot(density(y))
 round(apply(results, 2, mean), 3)
 # the more skewed the distribution (shape getting closer to zero and less than one) the more
 # the averages in the t10 bins tend to be higher quantiles eg 0.08, 0.17, 0.26 rather than 0.05, 0.15, 0.25
 
 
-reps <- 1000
-results <- matrix(0, reps, 10)
-shape1 <- 1
-shape2 <- 3
-rate <- 1
-for(i in 1:reps){
-  y <- rburr(800, shape1, shape2, rate)
-  results[i, ] <- pburr(bin_avs(y)$mean, shape1, shape2, rate)
-}
-plot(density(y))
-round(apply(results, 2, mean), 3)
-
 
 # algorithm will be iterative
-# 1. assume the 10 binned means represent the following quantiles: 0.045, 0.15, 0.25 ... 0.65, 0.751, 0.853, 0.969
-# 2. pick the optimal Burr distribution that fits those 10 quantile values.  Treat as a non-linear optimisation problem
+# 1. assume the 10 binned means represent the following quantiles: 0.05, 0.15, 0.25 ... 0.65, 0.75, 0.85, 0.95
+# 2. pick the optimal distribution that fits those 10 quantile values.  Treat as a non-linear optimisation problem
 # 3. generate data from that distribution and work out what the actual quantiles are
 # 4. repeat 2
 # 5. repeate 3.  If it's basically the same, stop here, otherwise iterate
 
-# adapting mpiktas' approach outlined at https://stats.stackexchange.com/questions/6022/estimating-a-distribution-based-on-three-percentiles
-
-n <- 100000
-x <- wpid[61:70, ]$RRinc
+n <- 10000
+x <- angola$RRinc
 
 fn1 <- function(params) {
   sum((x - qburr(p, params[1], params[2], params[3])) ^ 2 / x)
   }
 
-# this can be very erratic, occasionaly gets a very wild fit with no warnings, and Gini of nearly 1
+# this can be very erratic:
 p <- seq(0.05, 0.95, length.out = 10)
 fit1 <- optim(c(1,1,1), fn1)
 simulated1 <- rburr(n, fit1$par[1], fit1$par[2], fit1$par[3])
@@ -108,8 +146,9 @@ fit1 <- optim(c(1,1,1), fn1)
 simulated1 <- rburr(n, fit1$par[1], fit1$par[2], fit1$par[3])
 cbind(bin_avs(simulated1), x)
 weighted.gini(simulated1)$Gini
+weighted.gini(x)$Gini
 
-# this version is *much* more reliable
+# this version with a log norm distribution is *much* more reliable
 fn2 <- function(params) {
   sum((x - qlnorm(p, params[1], params[2])) ^ 2 / x)
 }
@@ -119,10 +158,12 @@ simulated2 <- rlnorm(n, fit2$par[1], fit2$par[2])
 p <- plnorm(bin_avs(simulated2)$mean, fit2$par[1], fit2$par[2])
 fit2 <- optim(c(1,1), fn2)
 simulated2 <- rlnorm(n, fit2$par[1], fit2$par[2])
+
 cbind(bin_avs(simulated2), x)
 weighted.gini(simulated2)$Gini
 
-
+# compare to the value estimated directly from the data:
+weighted.gini(x)$Gini
 # what if we do it all by monte carlo for binned means, no approximations?
 # It's much slower and comes up with similar answers.
 fn3 <- function(params){
@@ -136,6 +177,12 @@ cbind(bin_avs(simulated3), x)
 weighted.gini(simulated3)$Gini
 
 
+#' Convert data that is means of deciles into a Gini coefficient
+#' 
+#' @param x vector of 10 numbers, representing mean income (or whatever) for 10 deciles
+#' @param n number of simulated values of the underlying log-normal distribution to generate
+#' @details returns an estimate of Gini coefficient that is less biased than calculating it
+#' directly from the deciles, which would be slightly biased downwards.
 deciles_to_gini <- function(x, n = 1000){
   fn <- function(params) {
     sum((x - qlnorm(p, params[1], params[2])) ^ 2 / x)
@@ -160,8 +207,10 @@ deciles_to_gini <- function(x, n = 1000){
 deciles_to_gini(x = wpid[61:70, ]$RRinc)
 deciles_to_gini(x = wpid[171:180, ]$RRinc)
 
+svg("../img/0107-all-countries-ginis.svg", 8, 6)
 wpid %>%
   filter(country != "Switzerland") %>%
+  mutate(inc_con = ifelse(inc_con == "C", "Consumption", "Income")) %>%
   group_by(region, country, contcod, year, inc_con) %>%
   summarise(Gini = deciles_to_gini(RRinc)$Gini) %>%
   ungroup() %>%
@@ -169,8 +218,14 @@ wpid %>%
   geom_point() +
   geom_line() +
   facet_wrap(~region) +
-  guides(colour = FALSE)
+  guides(colour = FALSE) +
+  ggtitle("Inequality over time",
+          "Gini coefficients estimated from decile data") +
+  labs(x = "", linetype = "",
+       caption = "Source: Lakner/Milanovic World Panel Income Distribution data") 
+dev.off()
 
+svg("../img/0107-all-countries-snapshot.svg", 9, 9)
 wpid %>%
   filter(country != "Switzerland") %>%
   mutate(inc_con = ifelse(inc_con == "C", "Consumption", "Income")) %>%
@@ -189,4 +244,4 @@ wpid %>%
        caption = "Source: Lakner-Milanovic World Panel Income Distribution") +
   ggtitle("Inequality by country",
           "Most recent year available up to 2008; Gini coefficients are estimated from decile mean income.")
-  
+dev.off()  
