@@ -1,3 +1,6 @@
+# Source code for the web tool at XXXXXX
+# prep is in the ./_working/0108-nzes-prep.R script, one folder up from where this server.R resides.
+
 library(shiny)
 library(DT)
 library(dplyr)
@@ -6,10 +9,16 @@ library(tidyr)
 load("nzes.rda")
 load("vars.rda")
 
+
+
 shinyServer(function(input, output, session) {
   the_var <- reactive({
     names(vars)[as.character(vars) == input$variable]
   }) 
+  
+  row_var <- reactive({
+    tmp <- ifelse(input$hide_n, "partyvote", "partyvote_n")
+  })
   
   the_value_var <- reactive({
     if(input$value == "Sample size"){
@@ -24,7 +33,7 @@ shinyServer(function(input, output, session) {
   
    my_table <- reactive({
      tab <- nzes %>%
-       group_by_(the_var(), "dpartyvote") %>%
+       group_by_(the_var(), row_var()) %>%
        summarise(weighted = sum(dwtfin),
                  unweighted = n()) %>%
        ungroup()
@@ -37,7 +46,7 @@ shinyServer(function(input, output, session) {
            
        } else {
          tab <- tab %>%
-           group_by_("dpartyvote") %>%
+           group_by_(row_var()) %>%
            mutate(weighted = weighted / sum(weighted) * 100)
        }
      }
@@ -52,9 +61,16 @@ shinyServer(function(input, output, session) {
      
      tab <- tab %>%
        mutate(weighted = round(weighted)) %>%
-       select_(the_var(), "dpartyvote", the_value_var()) %>%
+       select_(the_var(), row_var(), the_value_var()) %>%
        spread_(the_var(), the_value_var(), fill = 0) %>%
-       rename_("Party vote" = "dpartyvote")
+       rename_("Party vote" = row_var())
+     
+     # Finally, if they want Pearson residuals, we turn this table of people counts into something else:
+     if(input$value == "Pearson residuals"){
+       mat <- as.matrix(tab[ ,-1])
+       tab[ ,-1] <- round(chisq.test(mat)$residuals, 1)
+     
+     }
      
      return(tab)
    })

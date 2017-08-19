@@ -248,3 +248,5 @@ dev.off()
 
 # cleanup
 unlink("LM_WPID_web.dta")
+
+convert_pngs("0107")
