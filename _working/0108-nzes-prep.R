@@ -48,15 +48,15 @@ nzes <- nzes %>%
   mutate(partyvote_n = paste0(partyvote, ", n = ", sample_size),
          partyvote_n = fct_infreq(partyvote_n))
 
+nzes_svy <- svydesign(~1, weights = ~dwtfin, data = nzes)
 
-
-
-
-
-
+tmp <- svychisq(~ partyvote + dinterest, design = nzes_svy)
+str(tmp)
+round(tmp$p.value, 3)
 
 save(vars, file = "0108/vars.rda")
 save(nzes, file = "0108/nzes.rda")
+save(nzes_svy, file ="0108/nzes_svy.rda")
 
 deployApp("0108", appName = "nzes2014_x_by_party", account = "ellisp")
 

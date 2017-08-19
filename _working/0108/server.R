@@ -17,7 +17,7 @@ shinyServer(function(input, output, session) {
   }) 
   
   row_var <- reactive({
-    tmp <- ifelse(input$hide_n, "partyvote", "partyvote_n")
+    ifelse(input$hide_n, "partyvote", "partyvote_n")
   })
   
   the_value_var <- reactive({
@@ -81,7 +81,6 @@ shinyServer(function(input, output, session) {
                                          autoWidth = TRUE, 
                                          pageLength = 20))
    
-   output$the_heading <- renderText(paste0("<h2>", input$variable, "</h2>"))
-  
-  
+   output$the_heading <- renderText(paste0("<h3>", input$variable, "</h3>"))
+
 })
