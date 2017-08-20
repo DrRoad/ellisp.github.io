@@ -83,12 +83,37 @@ shinyServer(function(input, output, session) {
      
      return(tab)
    })
+   
+   colours <- reactive({
+     n <- length(breaks()) + 1
+     if(input$value %in% c("Pearson residuals", "Percentage")){
+       col_m <- colorRamp(c("orange", "white", "cyan"))(1:n / n)  
+     } else {
+       col_m <- colorRamp(c("white", "yellowgreen"))(1:n / n)  
+     }
+     
+     cols <- apply(round(col_m), 1, function(x){paste0("rgb(", paste(x, collapse = ","), ")")})
+     return(cols)
+   })
+   
+   breaks <- reactive({
+     if(input$value == "Pearson residuals"){
+       brks <- quantile(-5:5, probs = seq(.05, .95, .05))
+       } else {
+            brks <- quantile(as.data.frame(my_table())[ ,-1], probs = seq(.05, .95, .05), na.rm = TRUE) 
+         }
+       
+     
+     return(brks)
+   })
   
-   output$the_table <- renderDataTable(my_table(), 
-                                       options = list(
-                                         dom = 't',
-                                         autoWidth = TRUE, 
-                                         pageLength = 20))
+   my_dt <- reactive({
+     datatable(my_table(), options = list(dom = 't')) %>%
+       formatStyle(names(my_table())[-1], backgroundColor = styleInterval(breaks(), colours()))
+     
+   })
+   
+   output$the_table <- renderDataTable(my_dt())
    
    output$the_heading <- renderText(paste0("<h3>", input$variable, "</h3>"))
 
