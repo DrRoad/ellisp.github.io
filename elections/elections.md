@@ -8,9 +8,11 @@ socialimage: /img/gam-vote-predictions.png
 
 <img src='/img/gam-final-chances-bar.svg' width='100%'> 
 
-This page provides probabilistic predictions for the 2017 New Zealand General Election from my currently preferred approach, "Model A".  It draws on multiple opinion polls, but goes a step beyond a straightforward poll aggregator in that the estimated voting intention from successive polls is used to forecast the chances of each party to actually win seats on election day, taking into account uncertainty.  Polling results are also adjusted to take into account different polling firms' past performance in predicting different parties' results.
+This page provides probabilistic predictions for the 2017 New Zealand General Election from "Model A".  The preferred approach in these times of volatility is a [hybrid model that combines Model A with Model B](/elections/combined.html).
 
-This page will be updated periodically as more data become available, or as I change my ideas about modelling strategy.  
+Both models draws on multiple opinion polls, but go a step beyond a straightforward poll aggregator in that the estimated voting intention from successive polls is used to forecast the chances of each party to actually win seats on election day, taking into account uncertainty.  Polling results are also adjusted to take into account different polling firms' past performance in predicting different parties' results.
+
+This page is updated periodically as more data become available.  
 
 - All material changes are described in [this changelog](/elections/changelog.html).  
 - Source code for the analysis, including all committed changes, is [available in the nz-election-forecast repository on GitHub](https://github.com/ellisp/nz-election-forecast/)

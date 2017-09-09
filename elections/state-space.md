@@ -11,7 +11,7 @@ This page provides an estimate of New Zealand election probabilities that feels 
 
 ## Results
 
-Treat these results with caution, it's not my favoured model of the two I have, so is presented here for transparency.
+Treat these results with caution, the recommended approach is the [combination of my two models](/elections/combined.html).
 
 <img src='/img/state-space-final-chances-bar.svg' width='100%'>
 <img src='/img/state-space-final-chances-histogram.svg' width='100%'>
@@ -50,9 +50,9 @@ The generalized additive model I use for Model A has a somewhat ad hoc, thrown t
 
 In contrast, these components are satisfyingly combined in a single model in the state space approach.  The house effects are estimated at the same time as the latent voting intention for six parties and "other" for every day; the voting intention right up to election day is estimated at the same time, not in a separate election process; and all the sources of variance are driven from the model without having to be estimated separately and added in.  Everything is held together by Bayes' rule.  Then, even the simulations at the end come as a by product of the model-fitting in Stan.  
 
-## Why isn't Model B preferred over Model A?
+## Why isn't Model B used by itself rather than in combination with Model A?
 
-The state space model is much more satisfying for a statistician than the more ad hoc approach in Model A, and I think maybe in a future year will be my main model.  But for now, it's not, because:
+The state space model is much more satisfying for a statistician than the more ad hoc approach in Model A, and I think maybe in a future year will be my main model.  But for now, I'm not letting it dominate, because:
 
 - It's still experimental and I'm tweaking with it.  For example, on the day I released the model I respecified the whole thing so that the day to day innovations in latent voting intention for each party are correlated with eachother rather than independent as had been the case before.  This is just playing catchup with the Model A, which has treated latent vote as multivariate normal on the logit scale since well before I began publishing it.  I have a list of other improvements in my head (which I may or may not get around to before election day in September), and I don't know in advance how much they might impact on the result.  So I don't want to be highlighting its predictions.
 - I'm twitchy about the random walk assumption.  In fact, I'm pretty sure it's just plain wrong; there's good evidence that in fact latent voting intention converges systematically towards levels that would be predicted by non-polling political science models.  See for example this great article [Understanding Persuasion and Activation in Presidential Campaigns: The Random Walk and Mean-Reversion Models](http://cgt.columbia.edu/research/papers-and-research/understanding-persuasion-and-activation-in-presidential-campaigns-the-random-walk-and-mean-reversion-models/) by Kaplan, Park and Gelman.  Of course, my simplistic generalized additive model isn't necessarily picking up structural reversion to an underlying destination better; but at least it's got a fighting chance.
@@ -61,10 +61,7 @@ My preferred model would be one that uses a political science prediction of the 
 
 The closer we get to election day, the less it matters.  This is because the main difference between the two models is the prediction of what happens between now and election day.  The state space model effectively treats recent polls (after treating for house effects) as a straight indication of the election day result; the generalized additive model instead expects there to continue to be movement in the current direction in the remaining days.  As the remaining days gets fewer this makes no difference, and I expect the two models to converge.
 
-In the meantime I recommend that you use one of these:
-
-- Model A, the [main election forecast model](/elections/elections.html), based on generalized additive model with corrections for house effects and election day variance.  Model A did a good job predicting the 2014 election six months out when I pretended to be back in time with it.
-- [A combination of both models](/elections/combined.html).  A substantial literature in forecasting shows that when you have two reasonably good models, you often get closer results by combining the two, so I've done this for you.
+In the meantime I recommend that you use [the combination of both models](/elections/combined.html).  A substantial literature in forecasting shows that when you have two reasonably good models, you often get closer results by combining the two, so I've done this for you.
 
 ## Source code
 

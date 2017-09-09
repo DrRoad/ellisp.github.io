@@ -8,7 +8,7 @@ socialimage: /img/gam-vote-predictions.png
 
 This page shows the results of *combining* the simulations of the two different models I use for predicting the New Zealand election results:
 
-- my ["main" model, Model A](/elections/elections.html), which is based on a generalized additive model with smoothing splines, fit after correcting for polling house effects, to forecast election day party vote - which allows recent trends in changing voting intention (eg the systematic growth or decline in support for a party) to continue towards election day
+- [Model A](/elections/elections.html), which is based on a generalized additive model with smoothing splines, fit after correcting for polling house effects, to forecast election day party vote - which allows recent trends in changing voting intention (eg the systematic growth or decline in support for a party) to continue towards election day
 - a ["state space" model, Model B](/elections/state-space.html), which simultaneously estimates house effects and latent voting intention for each party and assumes that voting intention is a random walk, so the level will not (on average) change in any structural way between now and election day although it will wander around at random.
 
 See the page on [Model B](/elections/state-space.html) for more detail on the differences between the two approaches.

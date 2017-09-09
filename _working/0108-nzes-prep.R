@@ -129,7 +129,7 @@ save(vars, file = "0108/vars.rda")
 save(nzes, file = "0108/nzes.rda")
 
 
-deployApp("0108", appName = "nzes2014_x_by_party", account = "ellisp")
+rsconnect::deployApp("0108", appName = "nzes2014_x_by_party", account = "ellisp")
 
 
 
