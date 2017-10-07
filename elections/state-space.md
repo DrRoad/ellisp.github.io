@@ -44,6 +44,8 @@ Here are the estimated house effects from the state space model:
 
 <img src='/img/state-space-house-effects.svg' width='100%'>
 
+For Reid Research, there is an additional 2017 house effect on top of the "2016 and earlier" effect shown above.  See [this blog post](/blog/2017/09/16/time-varying-house-effects) for more discussion - the long and short of it is that National look to be a bit overstated and Labour understated in Reid Research polls in 2017, compared to the house effect in 2016 and earlier.
+
 ### Everything modelled together rather than ad hoc
 
 The generalized additive model I use for Model A has a somewhat ad hoc, thrown together feel.  First the house effects are estimated by fitting models to previous years and comparing with election results.  Then "election day variance" is estimated similarly.  Finally a model is fit to the current cycle's polls, adjusted with those house effects, used to project forward to election day with election day variance added; and simulations created based on this combination.

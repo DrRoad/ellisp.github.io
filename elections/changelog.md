@@ -12,8 +12,15 @@ socialimage: /img/gam-vote-predictions.png
 
 All dates and times are New Zealand time.
 
+- *22 September 2017* Final update planned before election.  Add in the last Reid Research poll.  Forecasts substantively the same.
+- *21 September 2017* Horizon model is removed from Model A (discussion on Wikipedia refers), and latest Colmar Brunton added in; shows a swing back towards National.
+- *16 September 2017* Add first published poll by Horizon (Model A only, as Model B needs two polls per pollster minimum).  Also adds a minor tweak to Model B to allow for the Reid Research house effect to change in 2017, when their method changed (a quarter of the sample is now online).
+- *15 September 2017* Add latest Roy Morgan poll, no big change to substance of forecasts.
+- *14 September 2017* Add the One News Colmar Brunton poll, more positive for Labour than was the latest Reid.
+- *12 September 2017* Add in the Newshub Reid Research poll, which again is less positive for Labour
+- *10 September 2017* Add to both models in three Listener - Bauer Media Insights polls that only recently were added to Wikipedia, and to the GAM an additional small SSI poll.  Models have now converged on very low chance of National-led coalition.
 - *7 September 2017* Add a Colmar Brunton poll, continuing to be more positive for the Labour-led coalition.  Also took the call to shuffle around the website to indicate that the combined model of the two is now the preferred one.  Model A doesn't react fast enough to changes in the atmosphere.
-- *4 September 2017* Add the Newshub Reid Research poll, which is less positive for Labour than the Colmar Brunton
+- *4 September 2017* Add the latest Newshub Reid Research poll, which is less positive for Labour than the Colmar Brunton
 - *31 August 2017* Add the dramatic Colmar Brunton poll with Labour passing National for first time in years.  Net result is big reduction in the chance of current Nat-led coalition winning.
 - *21 August 2017* Update subsequent to Peter Dunne pulling out of Ohariu electorate.  Net result is about a 2.5 percentage point drop for the chance of current Nat-led coalition winning.
 - *20 August 2017* Found the problem with Model B, which turned out to be a data problem tracking back to Wikipedia, not caused by the volatility after all.  Recent polls have had a big downwards impact on the chances of a National-led coalition without NZ First in Model B.  This is partly the revision downwards of the Ohariu chances, and partly just getting closer to the election date there is less chance to pick up and a convergence of probabilities to the likely result.
