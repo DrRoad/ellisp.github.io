@@ -1,3 +1,5 @@
+#-------------functionality and data----------------
+
 library(tidyverse)
 library(scales)
 library(nzelect)
@@ -7,11 +9,19 @@ library(testthat)
 
 # load up the last prediction data, which is a data frame of 4,800 rows
 # (one for each simulated result) and 10 columns of party results
-load("../data/ellis-final-nz-election-forecasts-2017.rda")
 
+download.file("https://github.com/ellisp/ellisp.github.io/raw/source/data/ellis-final-nz-election-forecasts-2017.rda",
+              destfile = "tmp.rda", mode = "wb")
+load("tmp.rda")
+unlink("tmp.rda")
+
+
+#------------electorate seats that matter---------
 # probability of Labour win in each of the seven Maori seats:
 maori_probs <- data.frame(Labour = c(0.49, 0.52, 0.55, 0.58, 0.48, 0.64, 0.3)) %>%
   mutate(Other = 1 - Labour)
+
+n <- nrow(sims) # number of simulations ie 4800
 
 filler <- data.frame(
   party = c("Conservative", "Green", "NZ First", "United Future"),
@@ -22,8 +32,7 @@ filler <- data.frame(
 # probability of ACT win in Epsom
 epsom <- 0.8
 
-n <- nrow(sims) # number of simulations ie 4800
-
+# simulate electorate seat results:
 electorate_sims <- data_frame(
   epsom = sample(c("ACT", "National"), prob = c(epsom, 1 - epsom), size = n, replace = TRUE),
   m1 = sample(c("Labour", "Maori"), prob = maori_probs[1, 1:2], size = n, replace = TRUE),
@@ -42,6 +51,7 @@ electorate_sims <- data_frame(
     rbind(filler) %>%
     spread(party, seats, fill = 0)
 
+#-------------convert to total seats-------------------------
 seats <- t(sapply(1:n, function(i){
   allocate_seats(votes      = as.numeric(sims[i, 1:9]), 
                  electorate = as.numeric(electorate_sims[i, -1]),
@@ -49,8 +59,7 @@ seats <- t(sapply(1:n, function(i){
 })) %>%
     as_tibble()
 
-head(sims)
-head(seats)
+#-------------compare to actual results----------------------
 
 actual_results <- data_frame(
   party = c("ACT", "Green", "Labour", "Mana", "Maori", "National", "NZ First"),
@@ -67,7 +76,8 @@ d <- seats %>%
 
 
 # see https://stackoverflow.com/questions/4646020/ggplot2-axis-transformation-by-constant-factor
-# for this idea
+# for this idea to do a linear transformation of the y axis so it is probabilities rather than
+# counts of the 4800 simulations:
 formatter <- function(x, n = 4800){ 
   format(signif(x / n , 2), digits = 3)
 }
@@ -88,4 +98,5 @@ d %>%
   scale_fill_manual(values = parties_v, guide = FALSE) 
 dev.off()
 
+convert_pngs("0111")
 

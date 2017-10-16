@@ -15,7 +15,7 @@ library(rstan)
 
 #=================long term picture========================
 longterm <- read.xlsx("../data/vkt2.1.xlsx", sheet = "safety (2)", 
-                      cols = c(1, 3), rows = 2:69)
+                      cols = c(1, 17), rows = 2:69)
 
 
 svg("../img/0113-longterm.svg", 8, 4)
@@ -92,7 +92,6 @@ dev.off()
 
 #==================Wellington maps===================
 wtn <- get_map("Wellington, New Zealand", maptype = "roadmap", zoom = 11)
-crash$fatal <- ifelse(crash$fatal_count > 0, "Fatalities", "No fatalities")
 
 png("../img/0113-wellington.png", 7 * 300, 8 * 300, res = 300)
 ggmap(wtn) +
@@ -116,6 +115,136 @@ crash %>%
   addCircleMarkers(radius = ~fatal_count * 3, 
                    label = ~label1,
                    popup = ~label2)
+
+
+
+#==================time series=============
+
+#------------------vehicle kilometres travelled--------------------------
+vkt <- read.xlsx("../data/vkt2.1.xlsx", sheet = "VKT forecasts (2)",
+                 cols = 3, rows = 6:62, colNames = FALSE) / 4
+
+vkt_ts <- ts(vkt$X1, start = c(2001, 4), frequency = 4)
+vkt_mod <- hybridModel(vkt_ts, models = c("ae"))
+vkt_fc <- forecast(vkt_mod, h = 8)
+
+svg("../img/0113-vkt.svg", 8, 4)
+autoplot(vkt_fc) +
+  ggtitle("Vehicle kilometres travelled per quarter in New Zealand, 2001 to 2017",
+          "Forecasts from 2016 second quarter are an average of auto.arima and ets") +
+  labs(x = "", y = "Billions of vehicle kilometres travelled",
+       fill = "Prediction\nintervals",
+       caption = "Source: NZTA data compiled by Sam Warburton;\nForecasts by Peter's Stats Stuff")
+dev.off()
+
+#==================combining vkt and crashes============
+
+
+vkt_df <- data_frame(vkt = c(vkt[ ,1, drop = TRUE], vkt_fc$mean),
+                     t = c(time(vkt_ts), time(vkt_fc$mean))) %>%
+  mutate(six_month_period = as.character(ifelse(t %% 1 < 0.4, "a", "b")),
+         year = as.integer(t %/% 1)) %>%
+  group_by(year, six_month_period) %>%
+  summarise(vkt = sum(vkt))
+
+
+crash_six_month <- crash %>%
+  as_tibble() %>%
+  filter(fatal_count > 0) %>%
+  mutate(fin_year_end = as.numeric(str_sub(crash_fin_year, start = -4)),
+         six_month_period = ifelse(fin_year_end == crash_year, "a", "b")) %>%
+  rename(year = crash_year) %>%
+  group_by(year, six_month_period) %>%
+  summarise(fatal_count = sum(fatal_count)) %>%
+  left_join(vkt_df, by = c("year", "six_month_period")) %>%
+  mutate(deaths_per_billion_vkt = fatal_count / vkt) %>%
+  filter(year > 2001) %>%
+  arrange(year, six_month_period)
+
+dpbv_ts <- ts(crash_six_month$deaths_per_billion_vkt, frequency = 2, start = c(2002, 1))
+
+# high autocorrelation, as we'd expect:
+ggtsdisplay(dpbv_ts, 
+            main = "Crash deaths per billion vehicle kilometres travelled, six monthly aggregation") 
+
+auto.arima(dpbv_ts) # ARIMA(1,1,0)(0,0,1)[2] with drift
+
+#===============bayesian model=====================
+d <- list(
+  n      = nrow(crash_six_month),
+  deaths = crash_six_month$fatal_count,
+  vkt    = crash_six_month$vkt
+)
+
+
+stan_mod <- stan(file = "0113-crashes.stan", data = d, 
+                 control = list(adapt_delta = 0.99, max_treedepth = 15))
+
+
+mu <- t(as.data.frame(extract(stan_mod, "mu")))
+
+
+mu_gathered <- mu %>%
+  as_tibble() %>%
+  mutate(period = as.numeric(time(dpbv_ts))) %>%
+  gather(run, mu, -period)
+
+mu_summarised <- mu_gathered %>%
+  group_by(period) %>%
+  summarise(low80 = quantile(mu, 0.1),
+            high80 = quantile(mu, 0.9),
+            low95 = quantile(mu, 0.025),
+            high95 = quantile(mu, 0.975),
+            middle = mean(mu))
+
+svg("../img/0113-model-results.svg", 8, 5)
+mu_gathered %>%
+  ggplot(aes(x = period)) +
+  geom_line(alpha = 0.02, aes(group = run, y = mu)) +
+  geom_ribbon(data = mu_summarised, aes(ymin = low80, ymax = high80), 
+              fill = "steelblue", alpha = 0.5) +
+  geom_line(data = mu_summarised, aes(y = middle), colour = "white", size = 3) +
+  geom_point(data = crash_six_month, 
+             aes(x = year + (six_month_period == "b") * 0.5, 
+                 y = deaths_per_billion_vkt), 
+             fill = "white", colour = "black", shape = 21, size = 4) +
+  labs(x = "", y = "Latent rate of deaths per billion km",
+       caption = "Source: data from NZTA and Sam Warburton;
+Analysis by Peter's Stats Stuff") +
+  ggtitle("State space model of crash deaths in New Zealand",
+          "Six monthly observations")
+dev.off()
+
+mu_gathered %>%
+  filter(period %in% c(2017.0, 2013.5)) %>%
+  summarise(mean(mu[period == 2017.0] > mu[period == 2013.5])) # 88% of the time
+
+
+
+#===============factors================
+svg("../img/0113-factors.svg", 11, 9)
+crash %>%
+  as_tibble() %>%
+  filter(fatal_count > 0) %>%
+  mutate(fin_year_end = as.numeric(str_sub(crash_fin_year, start = -4))) %>%
+  select(fin_year_end, post_or_pole:other) %>%
+  mutate(id = 1:n()) %>%
+  gather(cause, value, -fin_year_end, -id) %>%
+  group_by(fin_year_end, cause) %>%
+  summarise(prop_accidents = sum(value > 0) / length(unique(id))) %>%
+  ungroup() %>%
+  mutate(cause = gsub("_", " ", cause),
+         cause = fct_reorder(cause, -prop_accidents)) %>%
+  ggplot(aes(x = fin_year_end, y = prop_accidents)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~cause) +
+  scale_y_continuous("Proportion of accidnets with this as a factor\n", label = percent) +
+  ggtitle("Factors relating to fatal crashes 2000 - 2017",
+          "Ordered from most commonly recorded to least") +
+  labs(caption = "Source: NZTA disaggregated crash data",
+       x = "Year ending June")
+dev.off()
 
 
 
@@ -183,94 +312,8 @@ crash %>%
           "This simpler calculation is designed as a check on the modelled results in the previous chart")
 dev.off()
 
-#==================time series=============
-
-#------------------vehicle kilometres travelled--------------------------
-vkt <- read.xlsx("../data/vkt2.1.xlsx", sheet = "VKT forecasts (2)",
-                 cols = 3, rows = 6:62, colNames = FALSE) / 4
-
-vkt_ts <- ts(vkt$X1, start = c(2001, 4), frequency = 4)
-vkt_mod <- hybridModel(vkt_ts, models = c("ae"))
-vkt_fc <- forecast(vkt_mod, h = 8)
-
-svg("../img/0113-vkt.svg", 8, 4)
-autoplot(vkt_fc) +
-  ggtitle("Vehicle kilometres travelled per quarter in New Zealand, 2001 to 2017",
-          "Forecasts from 2016 second quarter are an average of auto.arima and ets") +
-  labs(x = "", y = "Billions of vehicle kilometres travelled",
-       fill = "Prediction\nintervals",
-       caption = "Source: NZTA data compiled by Sam Warburton;\nForecasts by Peter's Stats Stuff")
-dev.off()
-
-#==================combining vkt and crashes============
-
-
-vkt_df <- data_frame(vkt = c(vkt[ ,1, drop = TRUE], vkt_fc$mean),
-                     t = c(time(vkt_ts), time(vkt_fc$mean))) %>%
-  mutate(six_month_period = as.character(ifelse(t %% 1 < 0.4, "a", "b")),
-         year = as.integer(t %/% 1)) %>%
-  group_by(year, six_month_period) %>%
-  summarise(vkt = sum(vkt))
-
-
-crash_six_month <- crash %>%
-  as_tibble() %>%
-  filter(fatal_count > 0) %>%
-  mutate(fin_year_end = as.numeric(str_sub(crash_fin_year, start = -4)),
-         six_month_period = ifelse(fin_year_end == crash_year, "a", "b")) %>%
-  rename(year = crash_year) %>%
-  group_by(year, six_month_period) %>%
-  summarise(fatal_count = sum(fatal_count)) %>%
-  left_join(vkt_df, by = c("year", "six_month_period")) %>%
-  mutate(deaths_per_billion_vkt = fatal_count / vkt) %>%
-  filter(year > 2001) %>%
-  arrange(year, six_month_period)
-
-dpbv_ts <- ts(crash_six_month$deaths_per_billion_vkt, frequency = 2, start = c(2001, 2))
-
-ggtsdisplay(dpbv_ts, 
-            main = "Crash deaths per billion vehicle kilometres travelled, six monthly aggregation") 
-
-auto.arima(dpbv_ts)
-
-#===============bayesian model=====================
-d <- list(
-  n      = nrow(crash_six_month),
-  deaths = crash_six_month$fatal_count,
-  vkt    = crash_six_month$vkt
-)
-
-stan_mod <- stan(file = "0113-crashes.stan", data = d)
-
-
-stan_mod
-
-#===============factors================
-crash %>%
-  as_tibble() %>%
-  filter(fatal_count > 0) %>%
-  mutate(fin_year_end = as.numeric(str_sub(crash_fin_year, start = -4))) %>%
-  select(fin_year_end, post_or_pole:other) %>%
-  mutate(id = 1:n()) %>%
-  gather(cause, value, -fin_year_end, -id) %>%
-  group_by(fin_year_end, cause) %>%
-  summarise(prop_accidents = sum(value > 0) / length(unique(id))) %>%
-  ungroup() %>%
-  mutate(cause = gsub("_", " ", cause),
-         cause = fct_reorder(cause, -prop_accidents)) %>%
-  ggplot(aes(x = fin_year_end, y = prop_accidents)) +
-  geom_point() +
-  geom_smooth(se = FALSE) +
-  facet_wrap(~cause) +
-  scale_y_continuous("Proportion of accidnets with this as a factor\n", label = percent) +
-  ggtitle("Factors relating to fatal crashes 2000 - 2017",
-          "Ordered from most commonly recorded to least") +
-  labs(caption = "Source: NZTA disaggregated crash data",
-       x = "Year ending June")
-
-
-
 
 #==========clean up===========
 unlink("disaggregated-crash-data.zip")
 unlink("disaggregated-crash-data.csv")
+convert_pngs("0113")
