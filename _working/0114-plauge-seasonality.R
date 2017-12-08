@@ -177,7 +177,7 @@ pd <- setwd("0114-tmp-small")
 system('magick -loop 0 -delay 8 *.png "0114-plague-deaths-small.gif"')
 setwd(pd)
 
-file.copy("0114-tmp/0114-plague-deaths-small.gif", "../img/0114-plague-deaths-small.gif", overwrite = TRUE)
+file.copy("0114-tmp-small/0114-plague-deaths-small.gif", "../img/0114-plague-deaths-small.gif", overwrite = TRUE)
 
 convert_pngs("0114")
 unlink("plague-mortality.xlsx")
