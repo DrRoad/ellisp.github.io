@@ -1,6 +1,5 @@
 
 
-library(survey)
 library(tidyverse)
 library(data.table)
 library(scales)
@@ -24,8 +23,9 @@ files <- list.files("IVS")
 for(i in 1:length(files)){
   print(paste("Importing", files[i]))
   tmp <- fread(paste0("IVS/", files[i]))
-  tabname <- str_sub(files[i], end = -5)
-  assign(tabname, tmp)
+  # knock of the ".csv" at the end of each file name, for the name of the data frane in R:
+  dfname <- str_sub(files[i], end = -5)
+  assign(dfname, tmp)
 }
 
 
@@ -53,8 +53,8 @@ spend_pov %>%
   mutate(POV = fct_reorder(POV, -value)) %>%
   ggplot(aes(x = yr_qtr, y = value, colour = POV)) +
   facet_wrap(~variable, scale = "free_y") +
-  geom_line() +
-  geom_smooth(se = FALSE) +
+  geom_line(alpha = 0.3) +
+  stat_seas(start = c(1997, 1), size = 1.2) +
   scale_y_continuous("", label = comma) +
   ggtitle("Weighted spend and visitor numbers, visits to New Zealand",
           "Highly seasonal quarterly data") +
@@ -140,3 +140,58 @@ qt_visitors_sum %>%
 # There is a problem here that if you choose *any* destination, people who visited there
 # do more activites and stayed longer in NZ than average.  Why?  Probably because indicating
 # *any* itinerary point means they were more engaged (either with NZ, or with the country...)
+
+
+
+#===============detective work into how all locations seem to have higher spenders on average=========================
+
+ip <- vw_IVSItineraryPlaces %>%
+  select(SurveyResponseID, WhereStayed) %>%
+  distinct()
+head(ip)
+
+all_locs <- vw_IVSSurveyMainHeader %>%
+  filter(Year >= 2014) %>% 
+  left_join(ip, by = "SurveyResponseID") %>%
+  mutate(WhereStayed = ifelse(is.na(WhereStayed), "Did not stay overnight at any location", WhereStayed)) %>%
+  group_by(WhereStayed) %>%
+  summarise(total_spend = sum(WeightedSpend * PopulationWeight, na.rm = TRUE),
+            visitors = sum(PopulationWeight, na.rm = TRUE),
+            mean_spend = total_spend / visitors) %>%
+  filter(visitors > 0) %>%
+  arrange(desc(mean_spend))
+
+overall_mean <- vw_IVSSurveyMainHeader %>%
+  filter(Year >= 2014) %>%
+  summarise(mean_spend = sum(WeightedSpend * PopulationWeight) / sum(PopulationWeight))
+
+all_locs %>%
+  filter(rank(-visitors) <= 150) %>%
+  mutate(label = ifelse(rank(-visitors) < 20, WhereStayed, "")) %>%
+  mutate(WhereStayed = fct_reorder(WhereStayed, mean_spend)) %>% 
+  ggplot(aes(x = mean_spend, y = WhereStayed)) +
+  geom_vline(xintercept = overall_mean$mean_spend, colour = "steelblue") +
+  geom_point(aes(size = visitors)) +
+  geom_text(aes(label = label), hjust = 0, nudge_x = 100, size = 2) +
+  scale_x_continuous("Mean spend per visit from 2014 to 2017", label = dollar) +
+  scale_size_area("Number of visitors\nsince 2014", label = comma) +
+  labs(caption = "Source: MBIE International Visitor Survey") +
+  ggtitle("Mean spend of visitors to the 150 most visited locations",
+          "Only the top 20 locations are labelled") +
+  theme(axis.text.y = element_blank(),
+        legend.position = "right")
+
+?geom_text
+
+vw_IVSSurveyMainHeader %>%
+  filter(Year >= 2014) %>%
+  left_join(places_visited, by = "SurveyResponseID") %>%
+  mutate(number_places_overnighted = ifelse(is.na(number_places_visited), 0, number_places_visited)) %>%
+  group_by(number_places_overnighted) %>%
+  summarise(mean_spend = sum(WeightedSpend * PopulationWeight) / sum(PopulationWeight),
+            visitors = sum(PopulationWeight)) %>%
+  arrange(number_places_overnighted) %>%
+  ggplot(aes(x = number_places_overnighted, y = mean_spend, size = visitors)) +
+  geom_hline(yintercept = overall_mean$mean_spend, colour = "steelblue") +
+  geom_point()
+    
