@@ -34,6 +34,8 @@ for(i in 1:length(files)){
 head(vw_IVSSurveyMainHeader)
 
 # total spend by purpose of visit
+# Note that "WeightedSpend" just means outlier-treated; you need to
+# use PopulationWeight to get the actual survey weights
 spend_pov <- vw_IVSSurveyMainHeader %>%
   group_by(Qtr, POV) %>%
   summarise(total_spend = sum(WeightedSpend * PopulationWeight),
@@ -227,12 +229,12 @@ vw_IVSSurveyMainHeader %>%
   geom_hline(yintercept = overall_mean$mean_spend, colour = "steelblue") +
   geom_point() +
   annotate("text", x = 70, y = overall_mean$mean_spend - 500, label = "Overall mean", colour = "steelblue") +
-  scale_y_continuous("Spend in New Zealand\n(square root transformed scale)",
+  scale_y_continuous("Mean spend in New Zealand",
                label = dollar) +
   labs(x = "Number of places overnighted in\n",
        caption = "Source: MBIE International Visitor Survey") +
   theme(legend.position = "none") +
-  ggtitle("Individuals' spend in New Zealand compared to places visited",
+  ggtitle("Spend in New Zealand compared to places visited",
           "Data from 2014 to 2017")
 dev.off()    
 
