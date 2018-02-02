@@ -41,6 +41,7 @@ spend_pov <- vw_IVSSurveyMainHeader %>%
             sample_size = n())
 
 # graphic  
+svg("../img/0115-total-spend.svg", 8, 6)
 spend_pov %>%
   # convert the "1997 1" format into a number:
   mutate(qtr = as.numeric(str_sub(Qtr, start = -1)),
@@ -60,7 +61,7 @@ spend_pov %>%
           "Highly seasonal quarterly data") +
   labs(x = "", colour = "Purpose\nof Visit",
        caption = "Source: MBIE International Visitor Survey")
-
+dev.off()
 
 #================Activities=================
 head(vw_IVSActivities)
@@ -116,15 +117,20 @@ palette <- c("Visited Queenstown" = "red", "Did not visit Queenstown" = "blue", 
 
 # do they spend more per visit?
 
+svg("../img/0115-qt-spend.svg", 8, 4.5)
 qt_visitors_sum %>%
   ggplot(aes(x = yr_qtr, y = spend_per_visitor, colour = visited_queenstown)) +
   geom_line(alpha = 0.15) +
   stat_stl(s.window = 7, size = 1.2) +
   theme(legend.position = "right") +
   scale_colour_manual("", values = palette) +
-  scale_y_continuous("Spend per visitor (seasonally adjusted)", label = dollar) +
-  labs(x =  "", caption = "Source: MBIE International Visitor Survey")
+  scale_y_continuous("Spend per visitor\n(seasonally adjusted)", label = dollar) +
+  labs(x =  "", caption = "Source: MBIE International Visitor Survey") +
+  ggtitle("Total spend while in New Zealand", 
+          "Comparing visitors who went to Queenstown with those who did not")
+dev.off()
 
+svg("../img/0115-qt-activities.svg", 8, 4.5)
 # do they stay more days and do more activities?
 qt_visitors_sum %>%
   select(visited_queenstown, yr_qtr, days_per_visitor, activities_per_visitor) %>%
@@ -134,9 +140,11 @@ qt_visitors_sum %>%
   geom_line(alpha = 0.15) +
   stat_stl(s.window = 7, size = 1.2) +
   scale_colour_manual("", values = palette) +
-  scale_y_continuous("Value (seasonally adjusted)", label = comma) +
-  labs(x =  "", caption = "Source: MBIE International Visitor Survey")
-
+  scale_y_continuous("Value\n(seasonally adjusted)", label = comma) +
+  labs(x =  "", caption = "Source: MBIE International Visitor Survey") +
+  ggtitle("Activities and length of stay while in New Zealand", 
+          "Comparing visitors who went to Queenstown with those who did not")
+dev.off()
 # There is a problem here that if you choose *any* destination, people who visited there
 # do more activites and stayed longer in NZ than average.  Why?  Probably because indicating
 # *any* itinerary point means they were more engaged (either with NZ, or with the country...)
@@ -145,11 +153,12 @@ qt_visitors_sum %>%
 
 #===============detective work into how all locations seem to have higher spenders on average=========================
 
+# each distinct place visited at least once by each person:
 ip <- vw_IVSItineraryPlaces %>%
   select(SurveyResponseID, WhereStayed) %>%
   distinct()
-head(ip)
 
+# total and average spend for each location, 2014 onwards:
 all_locs <- vw_IVSSurveyMainHeader %>%
   filter(Year >= 2014) %>% 
   left_join(ip, by = "SurveyResponseID") %>%
@@ -161,10 +170,13 @@ all_locs <- vw_IVSSurveyMainHeader %>%
   filter(visitors > 0) %>%
   arrange(desc(mean_spend))
 
+# overall average for comparison
 overall_mean <- vw_IVSSurveyMainHeader %>%
   filter(Year >= 2014) %>%
   summarise(mean_spend = sum(WeightedSpend * PopulationWeight) / sum(PopulationWeight))
 
+# graphic of just the 150 biggest
+svg("../img/0115-all-locations.svg", 8, 10)
 all_locs %>%
   filter(rank(-visitors) <= 150) %>%
   mutate(label = ifelse(rank(-visitors) < 20, WhereStayed, "")) %>%
@@ -180,9 +192,29 @@ all_locs %>%
           "Only the top 20 locations are labelled") +
   theme(axis.text.y = element_blank(),
         legend.position = "right")
+dev.off()
 
-?geom_text
+#===============compare spend to number of places people visited=======
+png("../img/0115-individuals.png", 8*600, 6*600, res = 600)
+vw_IVSSurveyMainHeader %>%
+  filter(Year >= 2014) %>%
+  left_join(places_visited, by = "SurveyResponseID") %>%
+  mutate(number_places_overnighted = ifelse(is.na(number_places_visited), 0, number_places_visited)) %>%
+  ggplot(aes(x = number_places_overnighted, y = WeightedSpend, size = PopulationWeight)) +
+  geom_point(alpha = 0.1) +
+  geom_hline(yintercept = overall_mean$mean_spend, colour = "steelblue") +
+  geom_smooth(colour = "orange") +
+  annotate("text", x = 70, y = overall_mean$mean_spend - 1000, label = "Overall mean", colour = "steelblue") +
+  scale_y_sqrt("Spend in New Zealand\n(square root transformed scale)",
+               label = dollar, breaks = c(1000, 10000, 25000, 50000, 100000, 200000)) +
+  labs(x = "Number of places overnighted in\n",
+       caption = "Source: MBIE International Visitor Survey") +
+  theme(legend.position = "none") +
+  ggtitle("Individuals' spend in New Zealand compared to places visited",
+          "Data from 2014 to 2017")
+dev.off()
 
+svg("../img/0115-grouped.svg", 8, 6)
 vw_IVSSurveyMainHeader %>%
   filter(Year >= 2014) %>%
   left_join(places_visited, by = "SurveyResponseID") %>%
@@ -193,5 +225,15 @@ vw_IVSSurveyMainHeader %>%
   arrange(number_places_overnighted) %>%
   ggplot(aes(x = number_places_overnighted, y = mean_spend, size = visitors)) +
   geom_hline(yintercept = overall_mean$mean_spend, colour = "steelblue") +
-  geom_point()
-    
+  geom_point() +
+  annotate("text", x = 70, y = overall_mean$mean_spend - 500, label = "Overall mean", colour = "steelblue") +
+  scale_y_continuous("Spend in New Zealand\n(square root transformed scale)",
+               label = dollar) +
+  labs(x = "Number of places overnighted in\n",
+       caption = "Source: MBIE International Visitor Survey") +
+  theme(legend.position = "none") +
+  ggtitle("Individuals' spend in New Zealand compared to places visited",
+          "Data from 2014 to 2017")
+dev.off()    
+
+convert_pngs("0115")  
